@@ -1,6 +1,6 @@
 # Plan técnico: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** En redacción (secciones 1–2 de 9)
+**Estado:** En redacción (secciones 1–3 de 9)
 **Spec:** [spec.md](spec.md) (aprobada) · **Decisiones:** [docs/decisiones.md](../../docs/decisiones.md)
 
 > El plan describe **cómo** se construye lo que pide la spec. Cada pieza indica qué historias
@@ -11,7 +11,7 @@
 
 1. [Estructura del repositorio y de los servicios](#1-estructura-del-repositorio-y-de-los-servicios)
 2. [Contrato AsyncAPI](#2-contrato-asyncapi)
-3. Modelo de datos — *pendiente*
+3. [Modelo de datos](#3-modelo-de-datos)
 4. Grafo del agente — *pendiente*
 5. Ingesta y conectores — *pendiente*
 6. Core API y front — *pendiente*
@@ -58,7 +58,8 @@ contracts/
 │   ├── agent-request.v1.json
 │   ├── agent-reply.v1.json   accepted, token, final, error (discriminated by "type")
 │   ├── ingestion-job.v1.json
-│   └── ingestion-event.v1.json
+│   ├── ingestion-event.v1.json
+│   └── audit-entry.v1.json
 └── docs/                     generated HTML documentation (gitignored, built on demand)
 ```
 
@@ -180,9 +181,8 @@ core-api/
 - **Migraciones de base:** Flyway, solo sobre el schema `core` (D12).
 - **Documentación:** springdoc genera OpenAPI y publica Swagger UI en `/swagger-ui` (D32).
 - **Clases del contrato:** generadas desde `contracts/schemas` en cada build (sección 1.2).
-- **Pendiente para la sección 3:** las personas y el registro de auditoría viven en schemas de
-  Python (`knowledge` y `agent`), y Java no puede leer tablas ajenas (D12). La sección 3 define
-  cómo los obtiene: por eventos de Kafka hacia una copia local, o a través de una API.
+- **Personas y auditoría:** viven en schemas de Python; Java las recibe por Kafka y guarda copias
+  de lectura (sección 3.5).
 
 ### 1.5 `web/` — React + TypeScript (D10)
 
@@ -291,11 +291,11 @@ Se mantiene D24 tal como está: un único `agent.requests` y el campo `replyTo` 
 | `agent.replies.<clientId>` | **Público** | `AgentReply` | `conversationId` | HU6, HU7 |
 | `ingestion.jobs` | Interno | `IngestionJob` | `jobId` | HU4, HU12 |
 | `ingestion.events` | Interno | `IngestionEvent` | `jobId` | HU4, HU12 |
+| `agent.audit` | Interno | `AuditEntry` | `requestId` | HU8 (ver 3.5) |
 
 - **Público** = forma parte de la API del agente: cambios incompatibles solo con una versión nueva (D23).
 - **Interno** = solo lo usan nuestros servicios; igual se documenta en el AsyncAPI.
 - La clave `conversationId` mantiene en orden los mensajes de una misma conversación (misma partición).
-- La sección 3 puede sumar tópicos internos para que Java conozca las personas y la auditoría.
 
 **Convenciones de todos los mensajes:**
 - JSON en UTF-8, nombres de campos en `camelCase`, fechas en ISO 8601 UTC, identificadores generados como UUID.
@@ -448,11 +448,11 @@ Cada elemento de `citations`:
 | `jobId` | UUID | |
 | `trigger` | `scheduled` \| `manual` | Programado (cada 30 min) o desde la interfaz (D31) |
 | `requestedAt` | fecha | |
-| `personas` | lista | Las personas a actualizar, con sus **fuentes externas** (vacía = solo carpetas) |
+| `sources` | lista | **Todas** las fuentes externas configuradas, de todas las personas (ver 3.6) |
 
-Cada persona: `{ personaId, sources: [...] }`; cada fuente: `{ sourceId, type, scope }`, donde
-`type` es `jira` \| `confluence` \| `sharepoint` y `scope` indica qué parte tomar
-(clave de proyecto, clave de espacio, sitio + carpeta).
+Cada fuente: `{ sourceId, personaId, type, scope }`, donde `type` es `jira` \| `confluence` \|
+`sharepoint` y `scope` indica qué parte tomar (clave de proyecto, clave de espacio, sitio + carpeta).
+Las carpetas de todas las personas se recorren siempre.
 
 - La Core API es dueña de las fuentes (D31), así que **las manda en el pedido**: el Ingestion
   Worker no necesita consultarle nada a Java.
@@ -465,6 +465,7 @@ Cada persona: `{ personaId, sources: [...] }`; cada fuente: `{ sourceId, type, s
 | `started` | Empezó la actualización | — |
 | `rejected` | Ya había una en curso (HU4.9) | `reason` |
 | `persona_completed` | Terminó una persona | Resumen de la persona (ver abajo) |
+| `persona_removed` | Se borró la carpeta de una persona | `personaId` |
 | `completed` | Terminó todo | Totales |
 | `failed` | Falló la actualización completa | `reason` |
 
@@ -488,7 +489,198 @@ y la interfaz no las maneja (spec HU12.6, ajustada).
 
 ## 3. Modelo de datos
 
-*Pendiente.*
+Cubre: HU2, HU3, HU4, HU5, HU8, HU9, HU10, HU12, HU15 · Aplica: D12, D16, D18, D26, D31
+
+### 3.1 Dueños y acceso (precisión de D12)
+
+Una sola instancia de Postgres con tres schemas. Cada servicio se conecta con **su propio rol**
+(autenticado por certificado, sección 7) que solo tiene los permisos mínimos:
+
+| Schema | Dueño | Rol | Permisos |
+|---|---|---|---|
+| `knowledge` | agent-service | `ingestion` | lectura y escritura |
+| `knowledge` | agent-service | `agent` | **solo lectura** |
+| `agent` | agent-service | `agent` | lectura y escritura |
+| `core` | core-api | `core_api` | lectura y escritura |
+
+- `knowledge` y `agent` pertenecen al mismo proyecto Python (D35), pero la ingesta y el agente son
+  procesos distintos: el agente **no puede modificar** la base de conocimiento.
+- Java no tiene acceso a `knowledge` ni a `agent`. Lo que necesita mostrar en el front le llega por
+  Kafka y lo guarda en **copias de lectura** en `core` (3.4).
+
+### 3.2 Schema `knowledge` — base de conocimiento
+
+```
+persona 1───* document 1───* chunk
+   │              │
+   │              └── parent_id (adjuntos de correos → su correo)
+   └───* sync_state
+
+ingestion_run        meta
+```
+
+**`persona`** — una por carpeta (HU9).
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | text PK | Nombre de la carpeta (`juan-plataforma`) |
+| `display_name` | text | Del perfil `persona.md` |
+| `identities` | jsonb | `{ "email": "…" }`, para el filtro por autor (D30) |
+| `profile_hash` | text | Para detectar cambios en el perfil |
+| `created_at`, `updated_at` | timestamptz | |
+
+Si la carpeta de una persona desaparece, se borra la persona y, en cascada, todo su conocimiento.
+
+**`document`** — cada archivo, correo, adjunto, issue o página.
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | text PK | Estable entre actualizaciones: `file:<persona>:<ruta>`, `jira:<persona>:<issueKey>`… |
+| `persona_id` | FK → persona | `ON DELETE CASCADE` |
+| `source_type` | text | `file` \| `email` \| `email_attachment` \| `jira` \| `confluence` \| `sharepoint` |
+| `source_id` | text, nullable | La fuente externa de la que vino (`null` = carpeta de la persona) |
+| `parent_id` | FK → document, nullable | Adjunto → su correo (HU4) |
+| `title`, `url`, `section_hint` | text | Para las citas |
+| `source_updated_at` | timestamptz | Fecha de modificación en el origen |
+| `content_hash` | text | Si no cambió, no se reprocesa (HU4.4) |
+| `secrets_masked` | int | Cuántos secretos se ocultaron (HU15.4) |
+| `indexed_at` | timestamptz | |
+
+**`chunk`** — los fragmentos que se buscan.
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | bigserial PK | |
+| `document_id` | FK → document | `ON DELETE CASCADE` |
+| `persona_id` | text | Repetido a propósito: toda búsqueda filtra por persona sin un join (HU3) |
+| `ordinal` | int | Orden dentro del documento |
+| `heading_path` | text | "Deploy > Rollback", para citar la sección |
+| `content` | text | Texto ya **sin secretos** |
+| `embedding` | `vector(N)` | N lo fija el modelo de embeddings (384 con el actual) |
+| `tsv` | tsvector (generada) | Búsqueda por palabras exactas (nombres de jobs, códigos de error); se combina con la vectorial en la sección 4 |
+
+Índices: HNSW sobre `embedding` (similitud coseno), GIN sobre `tsv`, B-tree sobre `persona_id`.
+
+**`sync_state`** — dónde quedó cada sincronización incremental.
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `persona_id`, `source_key` | PK compuesta | `source_key` = `folder` o el `sourceId` externo |
+| `cursor` | jsonb | Opaco para el pipeline; cada conector guarda lo suyo |
+| `last_synced_at` | timestamptz | |
+
+**`ingestion_run`** — historial de actualizaciones (HU4.5).
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `job_id` | uuid PK | El del `IngestionJob` |
+| `trigger` | text | `scheduled` \| `manual` |
+| `status` | text | `running` \| `completed` \| `failed` \| `rejected` |
+| `started_at`, `finished_at` | timestamptz | |
+| `summary` | jsonb | El resumen por persona que también viaja en `IngestionEvent` |
+
+**`meta`** — clave/valor. Guarda el modelo de embeddings con el que se indexó la base; si cambia,
+la siguiente actualización **reindexa todo** (los vectores de modelos distintos no son comparables).
+
+**Reglas de consistencia:**
+- **Reemplazo atómico por documento:** borrar sus chunks e insertar los nuevos ocurre en **una
+  transacción**. Quien busca ve la versión anterior completa o la nueva completa, nunca una mezcla
+  (caso borde de la spec).
+- **Nunca dos actualizaciones a la vez** (HU4.9): un *advisory lock* de Postgres (un candado a nivel
+  base de datos). Si está tomado, el job se rechaza con `IngestionEvent.rejected`.
+
+### 3.3 Schema `agent` — conversaciones, idempotencia y auditoría
+
+**Checkpoints de LangGraph** — tablas creadas y administradas por `langgraph-checkpoint-postgres`.
+Guardan el estado de cada conversación (HU5). Cada conversación es un *thread* de LangGraph.
+
+**`conversation`** — controla la retención (HU5.3).
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `client_id`, `conversation_id` | PK compuesta | Dos apps pueden usar el mismo `conversationId` sin mezclarse |
+| `persona_id` | text | |
+| `generation` | int | Sube cuando la conversación expira o cambia de persona |
+| `last_message_at` | timestamptz | |
+
+- El *thread* de LangGraph es `<clientId>:<conversationId>:<generation>`.
+- Si pasó más de `CONVERSATION_TTL` desde `last_message_at`, **o** el pedido es para otra persona,
+  sube `generation`: la conversación empieza sin historial.
+- Una tarea periódica del agente borra los checkpoints de conversaciones vencidas.
+
+**`processed_request`** — idempotencia (caso borde: pedido repetido).
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `request_id` | uuid PK | Si ya existe, el pedido se ignora |
+| `client_id` | text | |
+| `received_at` | timestamptz | Se borran pasados 7 días |
+
+**`rate_limit_window`** — pedidos por minuto por app (HU15.5).
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `client_id`, `window_start` | PK compuesta | Ventana de un minuto |
+| `request_count` | int | Se incrementa con un upsert atómico |
+
+Va en la base, y no en memoria, para que el límite sea correcto aunque haya varios Agent Workers.
+
+**`audit_entry`** — registro de lo respondido (HU8, HU15.7).
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | uuid PK | |
+| `request_id`, `client_id`, `conversation_id`, `persona_id` | | Pueden ser `null` en pedidos ilegibles |
+| `question`, `answer` | text | |
+| `outcome` | text | El `outcome` del `final`, o `error` |
+| `error_code` | text, nullable | |
+| `citations` | jsonb | |
+| `referral_persona_id` | text, nullable | Derivación sugerida (HU2) |
+| `flags` | text[] | `injection_suspected`, `rate_limited`, `question_too_long`, `invalid_request` |
+| `llm_model` | text | Con qué modelo se respondió (para comparar, D08) |
+| `first_token_ms`, `total_ms` | int | Objetivo de 10 s (RNF) |
+| `created_at` | timestamptz | |
+
+Índices: `(persona_id, created_at)`, `(created_at)` y GIN sobre `flags`, para los filtros de la interfaz (HU8.2).
+
+### 3.4 Schema `core` — Core API (Flyway)
+
+| Tabla | Contenido | Spec |
+|---|---|---|
+| `app_user` | `id`, `username` (único), `password_hash` (BCrypt), `enabled`, `created_at` | HU10, D16 |
+| `source` | `id`, `persona_id`, `type`, `scope` (jsonb), `created_at`, `updated_at` | HU12 |
+| `persona_view` | Copia de lectura: `id`, `display_name`, `updated_at` | HU10, HU12 |
+| `ingestion_run_view` | Copia de lectura: estado y resumen de cada actualización | HU4, HU12 |
+| `audit_entry_view` | Copia de lectura del registro de auditoría | HU8 |
+
+- **Usuario inicial:** si `app_user` está vacía al arrancar, la Core API crea el usuario con
+  `ADMIN_USERNAME` y `ADMIN_PASSWORD` (variables de entorno). La contraseña nunca se guarda en texto plano.
+- **Sesiones:** en memoria de la Core API (una sola instancia en el MVP). Si se reinicia, hay que
+  volver a iniciar sesión.
+
+### 3.5 Cómo se llenan las copias de lectura de Java
+
+Resuelve el pendiente de la sección 1.4. Los datos de Python le llegan a Java **por Kafka**:
+
+| Copia en `core` | Se alimenta de | Mensaje |
+|---|---|---|
+| `persona_view` | `ingestion.events` | `persona_completed` (alta o cambio) y `persona_removed` (baja) |
+| `ingestion_run_view` | `ingestion.events` | Todos los tipos |
+| `audit_entry_view` | `agent.audit` (**tópico nuevo**, interno) | `AuditEntry`: el mismo contenido que `audit_entry` |
+
+- Así se respeta D12: nadie lee tablas ajenas.
+- `agent.audit` contiene preguntas y respuestas: sus ACLs solo permiten escribir al Agent Worker y
+  leer a la Core API.
+- **Alternativa descartada:** que Java lea con un rol de solo lectura las tablas de Python.
+  Es más simple, pero acopla a Java con el modelo interno de Python.
+
+### 3.6 Cambios que esta sección introduce en la sección 2
+
+1. **Tópico nuevo `agent.audit`** con el mensaje `AuditEntry` (interno, clave `requestId`).
+2. **`IngestionEvent` suma `persona_removed`** y el `displayName` en `persona_completed` (ya estaba).
+3. **`IngestionJob` lleva la lista completa de fuentes externas**, no solo las de algunas personas.
+   Así la ingesta sabe qué fuentes se quitaron: borra los documentos cuyo `source_id` ya no está
+   en la lista (HU12.4). Las carpetas de todas las personas se recorren siempre.
 
 ## 4. Grafo del agente
 
