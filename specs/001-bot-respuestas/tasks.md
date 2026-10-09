@@ -48,7 +48,7 @@
 
 ### Infraestructura
 
-**[ ] T04 — CA y certificados**
+**[x] T04 — CA y certificados**
 - Plan: 7.1 · Depende de: T01
 - `infra/certs/generate.sh` (OpenSSL en contenedor) y `add-client.sh`.
 - **Hecho cuando:** genera la CA y los certificados de 7.1, y `openssl verify` valida cada uno contra la CA.
