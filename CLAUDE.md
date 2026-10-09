@@ -60,6 +60,9 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
   `TODO(T14)` (los `.eml`/`.msg` se omiten). Mientras falte T12, **no cargar conocimiento real**.
 - Tests de integración (plan 8.1): `integration_stack` contra Docker Compose (mTLS real) y
   `integration_containers` con Testcontainers (lógica sobre tablas).
+- **T40 (front) se hizo antes que T31 y T32** a pedido. El login usa tipos escritos a mano
+  (`TODO(T32)` en `web/src/api/auth.ts`) y `npm run test:api` (login contra la Core API real)
+  **falla a propósito hasta la T32**; no forma parte de `npm test` ni de `scripts/check.sh`.
 
 ## Entorno
 
@@ -80,9 +83,12 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
   en `9093`). Verificaciones: `infra/postgres/check.sh`, `infra/kafka/check.sh`. Detalle en `infra/README.md`.
 - **Comandos de calidad:** `cd agent-service && uv run pytest` (incluye Testcontainers; necesita Docker),
   `uv run ruff check`, `uv run mypy`; Java: `cd core-api && ./mvnw verify` (Maven Wrapper, no hace
-  falta Maven instalado); todo junto: `pre-commit run --all-files`.
+  falta Maven instalado); web: `cd web && npm ci && npm test` (y `npm run lint`, `npm run typecheck`);
+  todo junto: `pre-commit run --all-files`.
 - **Hooks de Java:** Spotless y Checkstyle corren vía `scripts/run_maven.py` (en Windows, `bash` es el
   de WSL y `sh` no está en el PATH, así que pre-commit no puede lanzar `mvnw` directamente).
+- **Tipos de la API en el front:** si cambia la API de `core-api`, actualizar la copia con
+  `./mvnw test -Dtest=OpenApiSnapshotTest -Dopenapi.update=true` y después `npm run generate:api` en `web/`.
 - **Commits:** agregar solo los archivos de la tarea (`git add <rutas>`), nunca `git add -A`: puede
   haber otra sesión trabajando en el mismo árbol.
 - **Código generado:** los modelos del contrato (`flock_agent/contracts/generated/`) se regeneran con

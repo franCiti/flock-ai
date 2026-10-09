@@ -1,0 +1,122 @@
+/* Base styles from the Flock design system (sections 2 and 5). Colors only through tokens.css. */
+@import './tokens.css';
+
+/* Values documented by the design system that tokens.css does not declare as variables. */
+:root {
+  /* Hover of the primary button (section 5). */
+  --brand-hover: #650aa0;
+  /* "Blocked" state colors (tokens.css, state colors). */
+  --state-blocked-bg: #fde7ee;
+  --state-blocked-fg: #be123c;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--brand-softer);
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-faint);
+}
+
+.field input {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.field input:focus {
+  outline: 2px solid var(--brand-soft);
+  border-color: var(--brand);
+}
+
+.button {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  border-radius: 9px;
+  padding: 9px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition:
+    transform 0.06s,
+    background 0.15s;
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.button-primary {
+  background: var(--brand);
+  color: #fff;
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+.button-light {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.button-light:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.button-ghost {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+
+.button-ghost:hover:not(:disabled) {
+  background: var(--surface);
+}

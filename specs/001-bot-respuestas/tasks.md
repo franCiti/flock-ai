@@ -230,7 +230,12 @@
 **[ ] T32 — Autenticación**
 - Spec: HU10.1 · Plan: 3.4, 6.2 · Depende de: T31
 - `app_user`, usuario inicial desde variables de entorno, login, logout, `me`, cookie de sesión, CSRF, documentación pública.
-- **Hecho cuando:** tests de login, `401` sin sesión, CSRF y acceso público a `/docs`.
+- **Hecho cuando:** tests de login, `401` sin sesión, CSRF y acceso público a `/docs`; y en `web/`,
+  `npm run test:api` pasa contra la Core API levantada (lo dejó la T40).
+- **Además:** actualizar la copia del OpenAPI del front, regenerar sus tipos (`npm run generate:api`) y
+  reemplazar los tipos escritos a mano de `web/src/api/auth.ts` (`TODO(T32)`). El front espera que
+  `GET /api/auth/me` entregue la cookie `XSRF-TOKEN` aun sin sesión, y que el login no exija más
+  que `{ username, password }`.
 
 **[ ] T33 — Copias de lectura**
 - Spec: HU8, HU10 · Plan: 3.5, 6.5 · Depende de: T31
@@ -268,11 +273,15 @@
 
 ### Front
 
-**[ ] T40 — Esqueleto de web**
+**[x] T40 — Esqueleto de web**
 - Plan: 1.5, 6.7 · Depende de: T30
 - Vite + React + TypeScript, ESLint, Prettier, `tsc` estricto, Vitest (y sus hooks), cliente generado
   del OpenAPI, tokens del design system de Flock, layout, ruteo y login.
 - **Hecho cuando:** login funcional contra la Core API y tests del flujo de login.
+- **Nota (2026-10-09):** se hizo antes que T31 y T32, a pedido. El login está programado contra los
+  endpoints del plan 6.2 y 6.3 y sus tests usan una API simulada. La prueba contra la Core API real
+  (`npm run test:api`) **falla hasta la T32**, que la incluye en su "hecho cuando". La copia del
+  OpenAPI vive en `web/src/api/openapi.json` y la controla `OpenApiSnapshotTest` en `core-api`.
 
 **[ ] T41 — Pantalla de chat**
 - Spec: HU6, HU10, HU15.6 · Plan: 6.6 · Depende de: T36, T37, T40

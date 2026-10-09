@@ -76,6 +76,7 @@
                 <configuration>
                     <systemPropertyVariables>
                         <contracts.dir>${contracts.dir}</contracts.dir>
+                        <openapi.snapshot>${project.basedir}/../web/src/api/openapi.json</openapi.snapshot>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

@@ -65,3 +65,26 @@ repos:
         language: python
         files: ^core-api/(src/.*\.java|pom\.xml|checkstyle\.xml)$
         pass_filenames: false
+
+  # TypeScript (web). Local hooks run the npm scripts, so they use the versions pinned in
+  # web/package-lock.json (run `npm ci` in web/ first).
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier (web)
+        entry: npm --prefix web run --silent format
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: eslint
+        name: eslint (web)
+        entry: npm --prefix web run --silent lint:fix
+        language: system
+        files: ^web/.*\.(ts|tsx|js)$
+        pass_filenames: false
+      - id: tsc
+        name: tsc (web)
+        entry: npm --prefix web run --silent typecheck
+        language: system
+        files: ^web/.*\.(ts|tsx|json)$
+        pass_filenames: false

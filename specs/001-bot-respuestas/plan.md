@@ -1221,7 +1221,7 @@ Los textos de la interfaz están en **español** (el código, en inglés).
 |---|---|
 | Ruteo | React Router |
 | Datos de la API | TanStack Query (caché, reintentos, estados de carga) |
-| Tipos de la API | Generados desde el OpenAPI de la Core API (`openapi-typescript`) |
+| Tipos de la API | Generados con `openapi-typescript` desde una copia del OpenAPI de la Core API (`web/src/api/openapi.json`); un test de `core-api` falla si la copia quedó desactualizada |
 | Streaming | `EventSource` nativo del navegador |
 | Markdown | `react-markdown` sin plugins de HTML, con imágenes desactivadas |
 | Estilos | Tokens del design system de Flock (skill `flock-design-system`) como variables CSS + CSS Modules |
