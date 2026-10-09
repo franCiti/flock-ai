@@ -212,6 +212,11 @@ escribirlo primero lo convierte en la fuente de verdad, en lugar de que lo defin
 **Alternativa:** Springwolf (genera AsyncAPI desde el código Spring, con UI similar a Swagger),
 pero documentaría solo el lado Java.
 
+### D39 — Fuentes externas con cuentas de servicio · Aceptada
+Jira, Confluence y SharePoint se leen con una cuenta de servicio por sistema, configurada en el
+`.env` del Ingestion Worker. Las credenciales no viajan por Kafka, no se guardan en la base y la
+interfaz no las maneja. El filtro por autor (D30) limita el contenido de cada persona.
+
 ---
 
 ## Organización y entrega

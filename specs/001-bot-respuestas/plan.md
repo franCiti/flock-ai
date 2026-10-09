@@ -1,6 +1,6 @@
 # Plan técnico: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** En redacción (sección 1 de 9)
+**Estado:** En redacción (secciones 1–2 de 9)
 **Spec:** [spec.md](spec.md) (aprobada) · **Decisiones:** [docs/decisiones.md](../../docs/decisiones.md)
 
 > El plan describe **cómo** se construye lo que pide la spec. Cada pieza indica qué historias
@@ -10,7 +10,7 @@
 ## Índice
 
 1. [Estructura del repositorio y de los servicios](#1-estructura-del-repositorio-y-de-los-servicios)
-2. Contrato AsyncAPI — *pendiente*
+2. [Contrato AsyncAPI](#2-contrato-asyncapi)
 3. Modelo de datos — *pendiente*
 4. Grafo del agente — *pendiente*
 5. Ingesta y conectores — *pendiente*
@@ -56,7 +56,7 @@ contracts/
 ├── asyncapi.yaml             channels (topics), operations and messages
 ├── schemas/                  JSON Schema, one file per message
 │   ├── agent-request.v1.json
-│   ├── agent-reply.v1.json   tokens, final answer, error (discriminated by "type")
+│   ├── agent-reply.v1.json   accepted, token, final, error (discriminated by "type")
 │   ├── ingestion-job.v1.json
 │   └── ingestion-event.v1.json
 └── docs/                     generated HTML documentation (gitignored, built on demand)
@@ -269,7 +269,222 @@ Todo lo configurable de la spec se resuelve con **variables de entorno** (docume
 
 ## 2. Contrato AsyncAPI
 
-*Pendiente.*
+Cubre: HU1, HU2, HU5, HU6, HU7, HU13, HU14, HU15 · Aplica: D09, D11, D23, D24, D25, D31, D33
+
+### 2.1 Identidad de la app cliente
+
+Se mantiene D24 tal como está: un único `agent.requests` y el campo `replyTo` en cada pedido.
+
+- **Kafka no le dice al consumidor quién publicó un mensaje**: el agente toma el `clientId` del
+  nombre del tópico indicado en `replyTo` (`agent.replies.<clientId>`). Es un dato **declarado** por
+  la app, no verificado; se usa para el límite de pedidos por minuto y la auditoría (HU8, HU15).
+- Las ACLs (D25) siguen controlando quién puede publicar en `agent.requests` y quién puede leer
+  cada `agent.replies.<clientId>`.
+- **Riesgo aceptado:** una app autorizada podría declarar el `replyTo` de otra. Se acepta para el MVP
+  porque todas las apps cliente son internas y autorizadas.
+
+### 2.2 Tópicos
+
+| Tópico | Tipo | Mensaje | Clave | Spec |
+|---|---|---|---|---|
+| `agent.requests` | **Público** | `AgentRequest` | `conversationId` | HU1, HU7 |
+| `agent.replies.<clientId>` | **Público** | `AgentReply` | `conversationId` | HU6, HU7 |
+| `ingestion.jobs` | Interno | `IngestionJob` | `jobId` | HU4, HU12 |
+| `ingestion.events` | Interno | `IngestionEvent` | `jobId` | HU4, HU12 |
+
+- **Público** = forma parte de la API del agente: cambios incompatibles solo con una versión nueva (D23).
+- **Interno** = solo lo usan nuestros servicios; igual se documenta en el AsyncAPI.
+- La clave `conversationId` mantiene en orden los mensajes de una misma conversación (misma partición).
+- La sección 3 puede sumar tópicos internos para que Java conozca las personas y la auditoría.
+
+**Convenciones de todos los mensajes:**
+- JSON en UTF-8, nombres de campos en `camelCase`, fechas en ISO 8601 UTC, identificadores generados como UUID.
+- Campo `version` obligatorio (hoy, `1`).
+- Headers de Kafka: `content-type: application/json` y `schema: <nombre>.v<versión>`.
+- Los campos desconocidos se **ignoran** (así se pueden agregar campos opcionales sin romper a nadie).
+
+### 2.3 `AgentRequest` — pedido de una app cliente
+
+| Campo | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `version` | `1` | sí | Versión del contrato |
+| `requestId` | UUID | sí | Identifica el pedido. Un `requestId` repetido **no se procesa dos veces** (caso borde de la spec) |
+| `conversationId` | string (1–128) | sí | Lo genera la app. Agrupa preguntas de una misma conversación (HU5) |
+| `personaId` | string (`^[a-z0-9][a-z0-9-]{0,62}$`) | sí | A qué persona virtual se le pregunta (nombre de su carpeta) |
+| `question` | string (≥ 1) | sí | La pregunta. El largo máximo lo valida el agente según configuración (HU15) |
+| `replyTo` | string (`^agent\.replies\.[a-z0-9-]{1,64}$`) | sí | Tópico donde la app quiere las respuestas; de ahí sale su `clientId` (2.1) |
+| `sentAt` | fecha | sí | Cuándo la envió la app |
+| `clientContext` | objeto `string → string` (≤ 10 pares) | no | Datos libres de la app; el agente los **devuelve** en cada respuesta, sin interpretarlos |
+
+```json
+{
+  "version": 1,
+  "requestId": "6f1c2a4e-1b7d-4c0e-9a51-3c2f8d9e0a11",
+  "conversationId": "web-session-42",
+  "personaId": "juan-plataforma",
+  "question": "¿Cómo hago rollback de un deploy?",
+  "replyTo": "agent.replies.core-api",
+  "sentAt": "2026-10-09T15:20:00Z",
+  "clientContext": { "uiMessageId": "m-17" }
+}
+```
+
+### 2.4 `AgentReply` — mensajes de respuesta
+
+Un pedido produce **varios** mensajes `AgentReply`, distinguidos por el campo `type`:
+
+```
+accepted ──> token ──> token ──> … ──> final
+    │                                     
+    └──────────────(en cualquier punto)──> error
+```
+
+**Garantías:**
+1. Todo pedido termina con **exactamente un** mensaje terminal: `final` o `error`.
+2. `seq` empieza en 0 y crece de a 1 dentro de cada pedido: permite ordenar y detectar faltantes.
+3. El texto de `final.answer` es el **definitivo**: la app reemplaza lo que armó con los `token`.
+4. Un pedido inválido igual recibe un `error` si se pudo leer su `replyTo`; los campos que no se
+   pudieron leer llegan en `null`. Si ni siquiera hay un `replyTo` válido, el pedido se descarta y
+   queda registrado en la auditoría.
+
+**Campos comunes a todos los tipos:**
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `version` | `1` | Versión del contrato |
+| `type` | `accepted` \| `token` \| `final` \| `error` | Tipo de mensaje |
+| `requestId` | UUID o `null` | El del pedido (`null` solo en errores de pedidos ilegibles) |
+| `conversationId` | string o `null` | El del pedido |
+| `personaId` | string o `null` | El del pedido |
+| `seq` | entero ≥ 0 | Orden dentro del pedido |
+| `sentAt` | fecha | Cuándo lo emitió el agente |
+| `clientContext` | objeto | El que mandó la app, sin cambios |
+
+**`accepted`** — el agente tomó el pedido.
+
+| Campo | Descripción |
+|---|---|
+| `deadlineAt` | Hasta cuándo puede llegar la respuesta (`ANSWER_TIMEOUT`). El front lo usa para la **cuenta regresiva** (HU10) |
+
+**`token`** — fragmento de la respuesta en curso (HU6).
+
+| Campo | Descripción |
+|---|---|
+| `text` | Texto nuevo a agregar. Agrupa los tokens generados en ~100 ms (D11) |
+
+**`final`** — respuesta completa (HU1, HU2, HU13, HU14).
+
+| Campo | Descripción |
+|---|---|
+| `answer` | Respuesta completa en Markdown, en el idioma de la pregunta |
+| `outcome` | Qué tipo de respuesta es (ver tabla siguiente) |
+| `persona` | `{ id, displayName }` de la persona que respondió |
+| `citations` | Lista de fuentes usadas (vacía si no aplica) |
+| `referral` | `{ personaId, displayName }` si sugiere preguntarle a otra persona (HU2); si no, `null` |
+| `timing` | `{ firstTokenMs, totalMs }` para medir el objetivo de 10 s del primer fragmento |
+
+| `outcome` | Cuándo | Spec |
+|---|---|---|
+| `answered` | Respondió con fuentes | HU1 |
+| `partially_answered` | Respondió una parte y aclara qué no encontró | HU2.5 |
+| `no_information` | No tiene la información (puede incluir `referral`) | HU2, HU14 |
+| `out_of_scope` | Pedido ajeno a la base y al ámbito laboral | HU14 |
+| `small_talk` | Saludo, agradecimiento o despedida | HU14 |
+| `about_assistant` | Preguntó quién es o qué hace | HU13 |
+
+Cada elemento de `citations`:
+
+| Campo | Descripción |
+|---|---|
+| `documentId` | Identificador estable del documento en la base |
+| `title` | Título legible |
+| `url` | Enlace al original (archivo, issue de Jira, página de Confluence, archivo de SharePoint) |
+| `section` | Sección o encabezado, si se conoce (opcional) |
+| `sourceType` | `file` \| `email` \| `email_attachment` \| `jira` \| `confluence` \| `sharepoint` |
+
+```json
+{
+  "version": 1, "type": "final", "seq": 42,
+  "requestId": "6f1c2a4e-1b7d-4c0e-9a51-3c2f8d9e0a11",
+  "conversationId": "web-session-42", "personaId": "juan-plataforma",
+  "sentAt": "2026-10-09T15:20:07Z", "clientContext": { "uiMessageId": "m-17" },
+  "answer": "Soy el asistente virtual de Juan Pérez. Para hacer rollback…",
+  "outcome": "answered",
+  "persona": { "id": "juan-plataforma", "displayName": "Juan Pérez" },
+  "citations": [{
+    "documentId": "files:juan-plataforma:procedures/deploy.md",
+    "title": "Deploy a producción", "section": "Rollback",
+    "url": "https://…", "sourceType": "file"
+  }],
+  "referral": null,
+  "timing": { "firstTokenMs": 2310, "totalMs": 6980 }
+}
+```
+
+**`error`** — el pedido terminó sin respuesta.
+
+| Campo | Descripción |
+|---|---|
+| `code` | Código estable, para que la app decida qué hacer |
+| `message` | Texto para mostrar, desde `messages.yaml`, en el idioma de la pregunta si se conoce (HU11) |
+| `retryable` | Si tiene sentido reintentar el mismo pedido más tarde |
+
+| `code` | Cuándo | `retryable` | Spec |
+|---|---|---|---|
+| `INVALID_REQUEST` | No cumple el esquema | no | Casos borde |
+| `UNSUPPORTED_VERSION` | `version` desconocida | no | Casos borde |
+| `PERSONA_NOT_FOUND` | La persona no existe | no | HU3 |
+| `QUESTION_TOO_LONG` | Supera `MAX_QUESTION_CHARS` | no | HU15 |
+| `RATE_LIMITED` | La app superó sus pedidos por minuto | sí | HU15 |
+| `TIMEOUT` | Se superó `ANSWER_TIMEOUT` | sí | HU6 |
+| `LLM_UNAVAILABLE` | El modelo no respondió | sí | Casos borde |
+| `INTERNAL_ERROR` | Cualquier otro error | sí | HU6 |
+
+### 2.5 `IngestionJob` — pedido de actualización (interno)
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `version` | `1` | |
+| `jobId` | UUID | |
+| `trigger` | `scheduled` \| `manual` | Programado (cada 30 min) o desde la interfaz (D31) |
+| `requestedAt` | fecha | |
+| `personas` | lista | Las personas a actualizar, con sus **fuentes externas** (vacía = solo carpetas) |
+
+Cada persona: `{ personaId, sources: [...] }`; cada fuente: `{ sourceId, type, scope }`, donde
+`type` es `jira` \| `confluence` \| `sharepoint` y `scope` indica qué parte tomar
+(clave de proyecto, clave de espacio, sitio + carpeta).
+
+- La Core API es dueña de las fuentes (D31), así que **las manda en el pedido**: el Ingestion
+  Worker no necesita consultarle nada a Java.
+- **El mensaje no lleva credenciales** (ver pregunta abierta 2).
+
+### 2.6 `IngestionEvent` — avance y resultado (interno)
+
+| `type` | Cuándo | Datos |
+|---|---|---|
+| `started` | Empezó la actualización | — |
+| `rejected` | Ya había una en curso (HU4.9) | `reason` |
+| `persona_completed` | Terminó una persona | Resumen de la persona (ver abajo) |
+| `completed` | Terminó todo | Totales |
+| `failed` | Falló la actualización completa | `reason` |
+
+Resumen por persona (HU4.5, HU9, HU12.8, HU15.4): `personaId`, `displayName`, cantidades de
+`added`, `modified`, `deleted`, `unchanged`, `secretsMasked`, y la lista de `skipped`
+(`{ path, reason }`) y de `sourceErrors` (`{ sourceId, reason }`).
+
+### 2.7 Documentación generada
+
+- `contracts/asyncapi.yaml` usa **AsyncAPI 3.0** y referencia los JSON Schema de `contracts/schemas/`.
+- La documentación HTML se genera con el generador oficial de AsyncAPI (ejecutado en un
+  contenedor) y se sirve junto con la Core API, al lado de Swagger UI.
+- Un test valida que los ejemplos de esta sección cumplen los esquemas.
+
+### 2.8 Credenciales de las fuentes externas (D39)
+
+Cada sistema (Jira, Confluence, SharePoint) se lee con **una cuenta de servicio**, cuyas credenciales
+están en la configuración del Ingestion Worker (`.env`). El filtro por autor (D30) garantiza que de
+cada persona se toma solo lo suyo. Las credenciales nunca viajan por Kafka ni se guardan en la base,
+y la interfaz no las maneja (spec HU12.6, ajustada).
 
 ## 3. Modelo de datos
 

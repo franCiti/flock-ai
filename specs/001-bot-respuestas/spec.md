@@ -212,7 +212,8 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 3. Las respuestas basadas en estas fuentes las citan con su **enlace** al sistema original.
 4. **Dado** que quito una fuente, **entonces** su contenido deja de usarse en las respuestas.
 5. Las fuentes **solo alimentan la base de conocimiento**: el bot no las consulta en vivo mientras responde.
-6. Las credenciales de acceso a las fuentes no se muestran en la interfaz una vez guardadas.
+6. La interfaz **no maneja credenciales**: cada sistema externo se lee con una cuenta de servicio
+   configurada por el operador fuera de la interfaz.
 7. De cada fuente se toma **solo lo que escribió la persona**:
    - **Confluence:** páginas que **creó o editó**.
    - **SharePoint:** archivos de los que es autora.
@@ -332,3 +333,4 @@ sensible, para poder ofrecerlo a otras aplicaciones con confianza.
 | Fecha | Cambio |
 |---|---|
 | 2026-10-09 | Versión aprobada |
+| 2026-10-09 | HU12.6: las credenciales de fuentes externas pasan a ser cuentas de servicio fuera de la interfaz (plan 2.8, D39) |
