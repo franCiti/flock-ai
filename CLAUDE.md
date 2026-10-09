@@ -46,8 +46,40 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
 | Linters | `pre-commit run --all-files` |
 | Linters + tests de todo | `scripts/check.sh` |
 
+## Cómo retomar el trabajo
+
+1. Leer el **estado** en `specs/001-bot-respuestas/tasks.md` (`[x]` hechas, `[~]` en curso, `[ ]` pendientes)
+   y `git log --oneline` (un commit por tarea, con el id de la tarea en el mensaje).
+2. Seguir con la próxima tarea pendiente respetando sus dependencias, salvo que Francisco indique otra.
+3. Antes de escribir código: releer la sección del plan que cita la tarea y las decisiones que aplica.
+
+**Desvíos acordados que hay que tener presentes** (detalle en la nota de T18 en `tasks.md`):
+
+- **T12 (ocultar secretos) y T14 (correos) quedaron pendientes** a pedido; la T18 se hizo antes.
+  Son puntos de extensión marcados `TODO(T12)` (`knowledge/redaction.py`, hoy no oculta nada) y
+  `TODO(T14)` (los `.eml`/`.msg` se omiten). Mientras falte T12, **no cargar conocimiento real**.
+- Tests de integración (plan 8.1): `integration_stack` contra Docker Compose (mTLS real) y
+  `integration_containers` con Testcontainers (lógica sobre tablas).
+
 ## Entorno
 
 - Windows 11, con Git Bash y PowerShell. Python se gestiona con **uv**; Docker Desktop con WSL 2.
 - La red puede inspeccionar HTTPS de forma intermitente: ante errores de certificados, ver
   `docs/notas-entorno.md` antes de cambiar código.
+
+### Particularidades para Claude Code en esta PC
+
+- **uv no está en el PATH de Git Bash** (se instaló con winget después de abrir la sesión). En Bash:
+  `export PATH="/c/Users/FranciscoNeyrotte/AppData/Local/Microsoft/WinGet/Packages/astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe:$PATH"`.
+  En PowerShell: `$env:Path = [Environment]::GetEnvironmentVariable('Path','User') + ';' + [Environment]::GetEnvironmentVariable('Path','Machine')`.
+  Los hooks de pre-commit (Ruff, mypy) necesitan uv en el PATH del proceso que hace el commit.
+- **pre-commit** está en `C:\Users\FranciscoNeyrotte\.local\bin\pre-commit.exe` (instalado con `uv tool install`).
+- **Nunca editar archivos con `Set-Content`/`Out-File` de PowerShell 5.1**: agregan BOM. Usar las
+  herramientas de edición o `sed`/Python con `newline="\n"`. El hook `fix-byte-order-marker` lo detecta.
+- **Entorno de Docker Compose:** `docker compose up -d --wait` desde la raíz (Postgres en `5433`, Kafka
+  en `9093`). Verificaciones: `infra/postgres/check.sh`, `infra/kafka/check.sh`. Detalle en `infra/README.md`.
+- **Comandos de calidad:** `cd agent-service && uv run pytest` (incluye Testcontainers; necesita Docker),
+  `uv run ruff check`, `uv run mypy`; todo junto: `pre-commit run --all-files`.
+- **Código generado:** los modelos del contrato (`flock_agent/contracts/generated/`) se regeneran con
+  `uv run python scripts/generate_contracts.py`; un test falla si quedan desactualizados.
+- **Ingesta manual contra el entorno:** ver `agent-service/README.md` (`flock-ingest run`).
