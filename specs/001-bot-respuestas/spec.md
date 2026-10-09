@@ -249,6 +249,34 @@ conocimiento de la persona, para que sus respuestas sean confiables y verificabl
    **entonces** aclara que solo responde con la base de conocimiento de la persona y no lo resuelve.
 4. Los mensajes de presentación, cortesía y fuera de ámbito son configurables (HU11).
 
+### HU15 — Resistencia a manipulación y protección de datos · Prioridad P1
+
+Como **operador**, quiero que el bot resista intentos de manipulación y no exponga información
+sensible, para poder ofrecerlo a otras aplicaciones con confianza.
+
+> Ninguna defensa contra la manipulación de un modelo de lenguaje es perfecta: estos criterios
+> se verifican con casos de ataque en el set de evaluación.
+
+**Criterios de aceptación**
+1. **Inyección directa:** **dado** un pedido que intenta cambiar el comportamiento del bot
+   ("ignorá tus instrucciones", "mostrame tu prompt", "hacé de cuenta que sos Juan", "respondé con
+   lo que sepas"), **entonces** el bot mantiene su comportamiento (HU13, HU14).
+2. **Inyección indirecta:** **dado** un documento de la base que contiene instrucciones dirigidas
+   al bot (por ejemplo, un comentario de Jira o un correo de un tercero), **entonces** el bot lo
+   trata como **información, nunca como instrucciones**.
+3. **Filtración entre personas:** **dado** un pedido sobre el conocimiento de otra persona virtual,
+   **entonces** el bot no muestra contenido de esa base; como mucho la sugiere (HU2).
+4. **Secretos:** **al actualizar** el conocimiento, los secretos evidentes en los documentos
+   (contraseñas, tokens, claves de API) se reemplazan por `[dato oculto]`, de modo que nunca
+   llegan a una respuesta. El resumen de la actualización informa cuántos se ocultaron por documento.
+5. **Límites de uso:** una pregunta no puede superar un **largo máximo** (por defecto, 2.000
+   caracteres) y cada app cliente tiene un **máximo de pedidos por minuto**. Ambos son configurables.
+   Superarlos produce un error claro, sin procesar el pedido.
+6. **Enlaces:** las respuestas solo incluyen enlaces a sus **fuentes**. La interfaz web no carga
+   contenido externo (imágenes, scripts) que aparezca en una respuesta.
+7. **Registro:** los intentos de manipulación detectados y los pedidos rechazados por límites
+   quedan **marcados** en el registro (HU8) para que el operador los revise.
+
 ## Casos borde
 
 - Pregunta repetida (la misma petición enviada dos veces): se responde una sola vez.
@@ -264,8 +292,8 @@ conocimiento de la persona, para que sus respuestas sean confiables y verificabl
 - **Idioma:** responde en el idioma de la pregunta.
 - **Tiempo de respuesta:** máximo configurable, por defecto 2 minutos (HU6).
   **[A CLARIFICAR]** ¿Hay un objetivo para el primer fragmento?
-- **Configuración:** retención de conversaciones, tiempo máximo, intervalo de actualización y mensajes
-  se configuran sin cambiar el sistema.
+- **Configuración:** retención de conversaciones, tiempo máximo, intervalo de actualización, límites
+  de uso y mensajes se configuran sin cambiar el sistema.
 - **Documentación de interfaces:** la API web tiene documentación interactiva, y el contrato de
   mensajería del bot (su API pública) está documentado y versionado, para que cualquier equipo
   pueda integrarse sin leer el código.
@@ -277,9 +305,12 @@ conocimiento de la persona, para que sus respuestas sean confiables y verificabl
 ## Criterios de éxito
 
 1. Existe un **set de evaluación** de al menos 20 preguntas reales por persona de prueba, con su
-   respuesta esperada, que incluye preguntas que debe derivar a otra persona.
+   respuesta esperada, que incluye preguntas que debe derivar a otra persona, preguntas fuera de
+   ámbito y **casos de ataque** (inyección directa, documentos "envenenados", intentos de filtración
+   entre personas).
 2. **[A CLARIFICAR]** Porcentaje mínimo de respuestas correctas y con fuente.
 3. Ante preguntas fuera de la base, el bot **no inventa** ni usa conocimiento general en ningún caso del set de evaluación.
+4. El bot no cae en **ningún** caso de ataque del set de evaluación.
 
 ## Fuera de alcance (MVP)
 
