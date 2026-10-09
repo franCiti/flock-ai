@@ -1,6 +1,6 @@
 # Plan técnico: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** En redacción (secciones 1–3 de 9)
+**Estado:** En redacción (secciones 1–4 de 9)
 **Spec:** [spec.md](spec.md) (aprobada) · **Decisiones:** [docs/decisiones.md](../../docs/decisiones.md)
 
 > El plan describe **cómo** se construye lo que pide la spec. Cada pieza indica qué historias
@@ -12,7 +12,7 @@
 1. [Estructura del repositorio y de los servicios](#1-estructura-del-repositorio-y-de-los-servicios)
 2. [Contrato AsyncAPI](#2-contrato-asyncapi)
 3. [Modelo de datos](#3-modelo-de-datos)
-4. Grafo del agente — *pendiente*
+4. [Grafo del agente](#4-grafo-del-agente)
 5. Ingesta y conectores — *pendiente*
 6. Core API y front — *pendiente*
 7. Seguridad e infraestructura — *pendiente*
@@ -684,7 +684,208 @@ Resuelve el pendiente de la sección 1.4. Los datos de Python le llegan a Java *
 
 ## 4. Grafo del agente
 
-*Pendiente.*
+Cubre: HU1, HU2, HU3, HU5, HU6, HU11, HU13, HU14, HU15 · Aplica: D07, D08, D11, D22, D26
+
+### 4.1 Recorrido completo de un pedido
+
+El trabajo se divide en dos partes: el **worker** hace las validaciones baratas y deterministas
+(sin LLM) y el **grafo** de LangGraph hace el razonamiento.
+
+```
+agent.requests
+     │
+     v
+┌─────────────────────────── Worker (sin LLM) ───────────────────────────┐
+│ 1. validar contra el esquema ───────────────────> error INVALID_REQUEST │
+│ 2. ¿requestId ya procesado? ────────────────────> se ignora            │
+│ 3. límite por app ──────────────────────────────> error RATE_LIMITED    │
+│ 4. largo de la pregunta ────────────────────────> error QUESTION_TOO_LONG│
+│ 5. ¿existe la persona? ─────────────────────────> error PERSONA_NOT_FOUND│
+│ 6. resolver conversación (retención, cambio de persona)                 │
+│ 7. publicar accepted { deadlineAt }                                     │
+│ 8. ejecutar el grafo con tiempo límite ─────────> error TIMEOUT          │
+│ 9. publicar final o error                                               │
+│10. registrar auditoría (tabla + agent.audit)                            │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Todos los rechazos de 1 a 5 se auditan con su flag** (HU15.7) y no consumen LLM.
+- **Concurrencia:** el worker procesa varios pedidos a la vez (límite configurable), pero los de una
+  **misma conversación** van de a uno y en orden.
+- **Entrega "al menos una vez":** el offset de Kafka se confirma recién después de publicar la
+  respuesta. Si el worker se cae a mitad de camino, el pedido se reprocesa; la idempotencia del paso 2
+  evita respuestas duplicadas de pedidos ya terminados.
+
+### 4.2 El grafo
+
+```
+            START
+              │
+              v
+       ┌─────────────┐
+       │ screen_input│  señales de inyección (reglas, sin LLM)
+       └──────┬──────┘
+              v
+       ┌─────────────┐
+       │  classify   │  LLM, salida estructurada
+       └──────┬──────┘
+   ┌──────────┼─────────────────────┐
+   │ question │ small_talk          │
+   v          │ about_assistant     │
+┌──────────┐  │ out_of_scope        │
+│ retrieve │  v                     │
+└────┬─────┘ ┌──────────────┐       │
+     v       │ canned_reply │<──────┼───────────────┐
+┌──────────┐ └──────┬───────┘       │               │
+│  grade   │        │               │               │
+└────┬─────┘        │               │               │
+     │ suficiente      parcial      │ nada          │
+     │                    │         v               │
+     │                    │  ┌───────────────┐      │
+     │                    └─>│ find_referral │──────┘ (no_information
+     │                       └──────┬────────┘          ± referral)
+     │      parcial ± referral      │
+     v<─────────────────────────────┘
+┌──────────┐
+│ generate │
+└────┬─────┘
+     v
+┌──────────┐
+│ finalize │<──── (canned_reply también termina acá)
+└────┬─────┘
+     v
+    END
+```
+
+**Estado del grafo:** historial de la conversación, pregunta, persona (`id`, `displayName`), idioma,
+intención, consulta reformulada, fragmentos recuperados, veredicto, respuesta, `outcome`, citas,
+derivación y flags.
+
+### 4.3 Nodos
+
+**`screen_input`** — sin LLM (HU15.1).
+Busca patrones conocidos de manipulación ("ignorá tus instrucciones", "ignore previous instructions",
+"system prompt", "actuá como", etc.). **No bloquea**: solo marca el flag `injection_suspected` para la
+auditoría. La defensa real está en el diseño de los demás nodos (4.5).
+
+**`classify`** — una llamada al LLM con **salida estructurada** (JSON validado por esquema).
+Devuelve en una sola llamada:
+
+| Campo | Para qué |
+|---|---|
+| `language` | Idioma de la pregunta (HU1.4) |
+| `intent` | `question` \| `small_talk` \| `about_assistant` \| `out_of_scope` |
+| `standalone_query` | La pregunta reescrita para que se entienda sola, usando el historial (HU5): "¿y si sale mal?" → "¿qué hago si un deploy sale mal?" |
+| `manipulation_attempt` | Si el pedido intenta cambiar el comportamiento del bot (flag, HU15.7) |
+
+Ante la duda, `intent` es `question`: es preferible buscar y no encontrar que rechazar una pregunta válida.
+
+**`retrieve`** — sin LLM. **Búsqueda híbrida** en los fragmentos de **esa persona** (HU3):
+1. Búsqueda vectorial: los 20 fragmentos más similares a `standalone_query`.
+2. Búsqueda por palabras: los 20 mejores por texto exacto (columna `tsv`, sección 3.2).
+3. Se combinan con **Reciprocal Rank Fusion** (suma puntajes según la posición en cada lista) y se
+   quedan los 8 mejores.
+
+La búsqueda por palabras complementa a la vectorial donde esta falla: nombres de jobs, códigos de
+error, siglas.
+
+**`grade`** — LLM con salida estructurada. Evalúa si los fragmentos responden la pregunta:
+
+| Campo | Para qué |
+|---|---|
+| `verdict` | `sufficient` \| `partial` \| `none` |
+| `relevant_ids` | Qué fragmentos sirven |
+| `missing` | Qué parte no está cubierta (si `partial`) |
+
+Separar la evaluación de la generación tiene tres ventajas: el `outcome` sale de una decisión
+explícita y no de interpretar el texto; el generador solo ve los fragmentos **relevantes** (menos
+superficie para inyecciones); y es medible por separado en la evaluación.
+
+**`generate`** — LLM en **streaming** (HU6). Recibe solo los fragmentos relevantes, numerados.
+Responde en el idioma de la pregunta, marca las fuentes como `[1]`, `[2]` y, si el veredicto fue
+`partial`, aclara qué no encontró (HU2.5). Los tokens se publican agrupados cada ~100 ms (D11).
+
+**`find_referral`** — sin LLM para buscar, con LLM para confirmar (HU2.2–2.4).
+Se ejecuta cuando `grade` da `none` y también cuando da `partial`; en ese caso busca a alguien para
+**la parte que falta** (`missing`), y `generate` responde lo que tiene y suma la sugerencia al final.
+1. Busca `standalone_query` (o `missing`, si fue parcial) en los fragmentos de **todas las demás** personas.
+2. Agrupa por persona y toma la de mejor puntaje, si supera un umbral mínimo configurable.
+3. Una llamada corta al LLM confirma si ese contenido responde la pregunta.
+4. Si confirma, la derivación es `{ personaId, displayName }`. **El contenido de la otra persona
+   nunca pasa al texto de la respuesta**: solo se usa para decidir (HU2.3).
+
+**`canned_reply`** — mensajes de `messages.yaml` (HU11, HU13, HU14).
+Toma la plantilla que corresponde (`about_assistant`, `small_talk`, `out_of_scope`, `no_information`,
+`referral`), completa los datos del perfil (`{display_name}`, `{referral_name}`) y, si la pregunta no
+fue en español, el LLM la **adapta al idioma** conservando el contenido (HU11.3). En español sale tal
+cual, sin llamar al LLM.
+
+**`finalize`** — sin LLM. Arma el mensaje `final`:
+- Convierte las marcas `[n]` en `citations` y descarta las marcas que no corresponden a un fragmento.
+- **Sanea el Markdown** (HU15.6): quita imágenes, HTML y cualquier enlace cuya URL no sea la de una cita.
+- Revisa que la respuesta no contenga el **canario** del prompt (4.5); si lo contiene, la reemplaza
+  por el mensaje de error general y marca `injection_suspected`.
+- Guarda la pregunta y la respuesta en el historial de la conversación (no los fragmentos).
+
+### 4.4 Cómo se obtiene cada `outcome`
+
+| Camino | `outcome` |
+|---|---|
+| `classify` → `small_talk` → `canned_reply` | `small_talk` |
+| `classify` → `about_assistant` → `canned_reply` | `about_assistant` |
+| `classify` → `out_of_scope` → `canned_reply` | `out_of_scope` |
+| `grade` = `sufficient` → `generate` | `answered` |
+| `grade` = `partial` → `find_referral` → `generate` | `partially_answered` (con o sin `referral`) |
+| `grade` = `none` → `find_referral` → `canned_reply` | `no_information` (con o sin `referral`) |
+
+### 4.5 Defensas contra manipulación (HU14, HU15)
+
+Ninguna defensa es perfecta por sí sola; se combinan capas:
+
+| Capa | Qué hace |
+|---|---|
+| **El agente no puede hacer nada** | En el MVP no tiene tools con efectos: lo peor que logra una inyección es un texto incorrecto, nunca una acción |
+| **Instrucciones explícitas** | El prompt de sistema fija identidad (asistente, no la persona), modo estricto, idioma y prohíbe revelar instrucciones |
+| **Documentos como datos** | Cada fragmento va dentro de delimitadores (`<document id="1">…</document>`) con la regla explícita de que su contenido es información y **nunca** instrucciones (HU15.2) |
+| **Filtro por relevancia** | `grade` descarta fragmentos irrelevantes, donde suelen esconderse las inyecciones |
+| **Canario** | El prompt de sistema incluye una cadena secreta aleatoria; si aparece en una respuesta, el prompt se filtró y la respuesta se descarta (HU13.3) |
+| **Salida saneada** | Sin imágenes, HTML ni enlaces ajenos a las citas (HU15.6) |
+| **Aislamiento por persona** | La búsqueda filtra por `persona_id` en la consulta, no en el prompt (HU3) |
+| **Secretos ya ocultos** | Se enmascaran al indexar: nunca llegan al modelo (HU15.4) |
+| **Detección y registro** | `screen_input` y `classify` marcan los intentos para la auditoría (HU15.7) |
+
+### 4.6 Prompts
+
+- Viven en `agent/prompts/`, en **inglés** (D02), versionados con el código.
+- Indican explícitamente que la respuesta va en el idioma de la pregunta.
+- Cada prompt tiene un identificador de versión que se guarda en la auditoría junto con el modelo,
+  para comparar resultados entre cambios.
+
+### 4.7 Modelos y llamadas al LLM
+
+| Rol | Variable | Usado por | Requisitos |
+|---|---|---|---|
+| Principal | `LLM_MODEL` | `generate` | Streaming, buena redacción |
+| Rápido | `LLM_FAST_MODEL` (por defecto, igual a `LLM_MODEL`) | `classify`, `grade`, `find_referral`, adaptación de idioma | Salida estructurada (tool calling o JSON schema), baja latencia |
+
+- Ambos se eligen con el set de evaluación (D08, sección 8).
+- **Latencia estimada** hasta el primer fragmento: `classify` + `retrieve` + `grade` + primer token
+  de `generate` ≈ 3–5 s con modelos rápidos; el objetivo es 10 s (RNF).
+- **Reintentos:** las llamadas estructuradas se reintentan una vez ante un error transitorio, siempre
+  dentro del tiempo límite. Si el LLM no responde, `LLM_UNAVAILABLE`.
+- **Tiempo límite:** todo el grafo corre dentro de `ANSWER_TIMEOUT`; al vencer, se cancela la llamada
+  en curso y se publica `TIMEOUT` (HU6.3).
+
+### 4.8 Parámetros de búsqueda (configurables)
+
+| Parámetro | Variable | Defecto inicial |
+|---|---|---|
+| Candidatos por tipo de búsqueda | `RETRIEVAL_CANDIDATES` | 20 |
+| Fragmentos que pasan a `grade` | `RETRIEVAL_TOP_K` | 8 |
+| Umbral mínimo para derivar | `REFERRAL_MIN_SCORE` | se calibra con la evaluación |
+| Turnos de historial que se usan | `HISTORY_TURNS` | 6 |
+
+Los valores iniciales son un punto de partida: se ajustan con el set de evaluación.
 
 ## 5. Ingesta y conectores
 
