@@ -131,10 +131,14 @@
 
 ### Agente
 
-**[ ] T19 — Schema `agent` y repositorios**
+**[x] T19 — Schema `agent` y repositorios**
 - Spec: HU5, HU8, HU15.5 · Plan: 3.3 · Depende de: T08
 - Migraciones, `conversation` (retención y generación), `processed_request`, `rate_limit_window`, `audit_entry`.
 - **Hecho cuando:** tests de vencimiento por último mensaje, cambio de persona, idempotencia y ventana por minuto.
+- **Nota (2026-10-09):** los repositorios exponen la limpieza (`purge_expired`, `purge`), pero la
+  tarea periódica que la invoca y el borrado de checkpoints con el checkpointer de LangGraph se
+  conectan en T24/T25. `processed_request` se registra **después** de publicar la respuesta (entrega
+  "al menos una vez", plan 4.1).
 
 **[ ] T20 — LLM, mensajes y prompts**
 - Spec: HU11 · Plan: 4.6, 4.7 · Depende de: T02

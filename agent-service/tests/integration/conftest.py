@@ -51,9 +51,10 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 @pytest.fixture(scope="session")
 def test_database() -> Iterator[TestDatabase]:
-    """One ephemeral PostgreSQL per test session, with the knowledge migrations applied."""
+    """One ephemeral PostgreSQL per test session, with the migrations of every schema applied."""
     with running_database() as database:
         apply_migrations(database.conninfo("ingestion"), schema="knowledge")
+        apply_migrations(database.conninfo("agent"), schema="agent")
         yield database
 
 
@@ -81,6 +82,16 @@ async def agent_pool(test_database: TestDatabase) -> AsyncIterator[Pool]:
         yield pool
     finally:
         await pool.close()
+
+
+@pytest.fixture
+async def agent_tables(agent_pool: Pool) -> Pool:
+    """Connections as the agent role, on empty agent tables."""
+    async with agent_pool.connection() as connection:
+        await connection.execute(
+            "TRUNCATE conversation, processed_request, rate_limit_window, audit_entry"
+        )
+    return agent_pool
 
 
 StackSettings = Callable[..., Settings]
