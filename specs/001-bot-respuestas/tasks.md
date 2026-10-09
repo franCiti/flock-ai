@@ -97,7 +97,7 @@
 - Spec: HU15.4 · Plan: 5.6 · Depende de: T02
 - **Hecho cuando:** cada detector tiene casos que deben ocultarse y casos parecidos que no; se cuentan las ocultaciones.
 
-**[ ] T13 — Parsers de texto, HTML, PDF y Word**
+**[x] T13 — Parsers de texto, HTML, PDF y Word**
 - Spec: HU4.6, HU4.7 · Plan: 5.3 · Depende de: T02
 - Detección de texto por contenido, HTML/XML, PDF (y escaneados), docx con títulos y tablas, límite de tamaño.
 - **Hecho cuando:** tests con una muestra por formato en `tests/fixtures/`.
