@@ -1,6 +1,6 @@
 # Plan técnico: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** En redacción (secciones 1–4 de 9)
+**Estado:** En redacción (secciones 1–5 de 9)
 **Spec:** [spec.md](spec.md) (aprobada) · **Decisiones:** [docs/decisiones.md](../../docs/decisiones.md)
 
 > El plan describe **cómo** se construye lo que pide la spec. Cada pieza indica qué historias
@@ -13,7 +13,7 @@
 2. [Contrato AsyncAPI](#2-contrato-asyncapi)
 3. [Modelo de datos](#3-modelo-de-datos)
 4. [Grafo del agente](#4-grafo-del-agente)
-5. Ingesta y conectores — *pendiente*
+5. [Ingesta y conectores](#5-ingesta-y-conectores)
 6. Core API y front — *pendiente*
 7. Seguridad e infraestructura — *pendiente*
 8. Tests y evaluación — *pendiente*
@@ -398,7 +398,8 @@ Cada elemento de `citations`:
 |---|---|
 | `documentId` | Identificador estable del documento en la base |
 | `title` | Título legible |
-| `url` | Enlace al original (archivo, issue de Jira, página de Confluence, archivo de SharePoint) |
+| `url` | Enlace al original (issue de Jira, página de Confluence, archivo de SharePoint); `null` para archivos de las carpetas (5.9) |
+| `path` | Ruta relativa del archivo dentro de la carpeta de la persona (solo archivos de carpetas) |
 | `section` | Sección o encabezado, si se conoce (opcional) |
 | `sourceType` | `file` \| `email` \| `email_attachment` \| `jira` \| `confluence` \| `sharepoint` |
 
@@ -414,7 +415,7 @@ Cada elemento de `citations`:
   "citations": [{
     "documentId": "files:juan-plataforma:procedures/deploy.md",
     "title": "Deploy a producción", "section": "Rollback",
-    "url": "https://…", "sourceType": "file"
+    "url": null, "path": "procedures/deploy.md", "sourceType": "file"
   }],
   "referral": null,
   "timing": { "firstTokenMs": 2310, "totalMs": 6980 }
@@ -889,7 +890,212 @@ Los valores iniciales son un punto de partida: se ajustan con el set de evaluaci
 
 ## 5. Ingesta y conectores
 
-*Pendiente.*
+Cubre: HU4, HU9, HU12, HU15.4 · Aplica: D19, D20, D22, D29, D30, D31, D39
+
+### 5.1 Recorrido de una actualización
+
+```
+ingestion.jobs (o flock-ingest run)
+     │
+     v
+ tomar el candado ─────── ocupado ───> IngestionEvent.rejected (HU4.9)
+     │
+     v
+ started
+     │
+     v
+ por cada carpeta de persona en KNOWLEDGE_ROOT:
+   1. perfil: crear persona.md si falta / leerlo / actualizar persona (HU9)
+   2. carpeta: sync incremental de archivos (5.3)
+   3. fuentes externas de esa persona incluidas en el job (5.4)
+   4. documentos de fuentes que ya no están en el job → borrar (HU12.4)
+   5. persona_completed { resumen }
+     │
+     v
+ personas cuya carpeta desapareció → borrar + persona_removed
+     │
+     v
+ completed { totales }   ── soltar el candado
+```
+
+**Reglas de robustez:**
+- **Un error en un documento** no frena la actualización: el documento se omite y se informa
+  en `skipped` con el motivo.
+- **Un error en una fuente** (por ejemplo, Jira no responde) se informa en `sourceErrors` y sus
+  documentos **se conservan**: una fuente caída nunca se interpreta como "se borró todo". Su cursor
+  no avanza, así que la próxima actualización reintenta.
+- **El cursor de cada fuente se guarda al terminar esa fuente**, no al final de todo: si el proceso
+  se corta, no se pierde lo ya hecho.
+
+### 5.2 La interfaz común de conectores (D19)
+
+```python
+class SourceDocument(BaseModel):
+    id: str                       # stable: "file:<persona>:<path>", "jira:<persona>:<key>"
+    persona_id: str
+    source_type: SourceType       # file | email | email_attachment | jira | confluence | sharepoint
+    source_id: str | None         # external source id; None for the persona folder
+    parent_id: str | None         # email attachment -> its email
+    title: str
+    url: str | None
+    path: str | None              # relative path, for folder files
+    content: str                  # plain text / Markdown, before redaction
+    source_updated_at: datetime
+
+
+class SyncPlan(BaseModel):
+    upserts: AsyncIterator[SourceDocument]   # lazy: fetched/parsed while iterating
+    deleted_ids: list[str]
+    next_cursor: dict[str, Any]
+
+
+class SourceConnector(Protocol):
+    source_key: str               # "folder" or the external source id
+
+    async def sync(self, cursor: dict[str, Any] | None) -> SyncPlan: ...
+```
+
+- El pipeline (5.5) solo conoce esta interfaz: agregar un sistema nuevo es escribir un conector.
+- `upserts` es **perezoso**: cada documento se descarga y se parsea recién cuando el pipeline lo pide,
+  así una fuente grande no se carga entera en memoria.
+
+### 5.3 Archivos (D20)
+
+Se separa **dónde están** (`FileStore`) de **cómo se leen** (parsers):
+
+```python
+class FileStore(Protocol):
+    async def delta(self, cursor: dict[str, Any] | None) -> FileDelta: ...  # changed + deleted + cursor
+    async def read_bytes(self, path: str) -> bytes: ...
+```
+
+| `FileStore` | Uso | Cómo detecta cambios |
+|---|---|---|
+| `LocalFolderStore` | Carpeta de cada persona | Snapshot `{ruta: (fecha de modificación, tamaño)}` en el cursor |
+| `SharePointStore` | Fuente externa SharePoint, vía MCP (5.4) | Fecha de modificación de cada archivo del sitio/carpeta |
+
+**Archivos que se ignoran siempre:** `persona.md` (es el perfil, HU9.3), ocultos (`.algo`) y
+temporales de Office (`~$algo.docx`).
+
+**Parsers** (comunes a todos los `FileStore`):
+
+| Tipo | Cómo se reconoce | Cómo se lee |
+|---|---|---|
+| Texto | Cualquier archivo que **por contenido** sea texto: sin bytes nulos y con codificación detectable (`charset-normalizer`). No depende de la extensión | Tal cual |
+| HTML / XML | Extensión | Se extrae el texto sin etiquetas (`beautifulsoup4`) |
+| PDF | Extensión | `pypdf`. Si no tiene texto (escaneado), se omite (HU4.7) |
+| Word | `.docx` | `python-docx`. Los títulos pasan a encabezados Markdown y las tablas a texto |
+| Correo Outlook | `.msg` | `extract-msg`: asunto, remitente, destinatarios, fecha y cuerpo |
+| Correo estándar | `.eml` | Módulo `email` de Python, con los mismos campos |
+
+- **Adjuntos de correos** (HU4.6): cada adjunto de un formato soportado es un documento hijo con
+  `parent_id` = el correo, id `<id del correo>#attachment/<nombre>` y título "adjunto de *asunto*".
+  Un correo adjunto dentro de otro se procesa, pero no se sigue más allá de ese nivel.
+- **Tamaño máximo por archivo:** `MAX_FILE_MB` (por defecto, 20 MB); los más grandes se omiten y se informan.
+- **Citas de archivos locales:** no tienen una URL que el navegador pueda abrir, así que se citan
+  por su **ruta relativa** (`path`) y `url` queda en `null` (ver 5.9).
+
+### 5.4 Fuentes externas vía MCP (D30, D39)
+
+**Arquitectura:**
+- Cada servidor MCP corre como **un contenedor más** del Docker Compose, con las credenciales de la
+  cuenta de servicio en su configuración (D39). El Ingestion Worker se conecta a ellos por HTTP.
+- Un `McpClient` compartido maneja la conexión, la paginación y los reintentos con espera creciente
+  cuando el sistema limita la cantidad de pedidos.
+- La **identidad de la persona** en cada sistema sale de `identities.email` del perfil (HU12.8).
+  Si falta, sus fuentes externas no se procesan y se informa.
+
+**Qué se trae de cada sistema** (HU12.7):
+
+| Conector | Consulta | Documento resultante |
+|---|---|---|
+| **Jira** | JQL: `project = <scope> AND (reporter = <persona> OR assignee = <persona>)`, ordenado por fecha de actualización | Un documento por issue: `KEY: resumen`, metadatos (estado, resolución, fechas), descripción y **todos los comentarios** con autor y fecha. URL del issue |
+| **Confluence** | CQL: `space = <scope> AND (creator = <persona> OR contributor = <persona>)` | Un documento por página: título, ruta de páginas padre como sección, cuerpo convertido a Markdown. URL de la página |
+| **SharePoint** | Archivos del sitio/carpeta de `scope` creados o modificados por la persona | Pasan por los **mismos parsers** que los archivos locales (5.3). URL del archivo |
+
+**Detección de cambios y bajas:**
+- **Cambios:** el cursor guarda la última fecha de actualización vista; se piden solo los elementos
+  modificados desde entonces.
+- **Bajas:** las consultas incrementales no muestran lo que se borró o dejó de corresponder (un
+  issue reasignado a otra persona, por ejemplo). Por eso, en cada actualización se pide además la
+  **lista de identificadores** que cumplen la consulta (sin contenido, es barato) y se borran los
+  documentos que ya no aparecen.
+
+**Riesgo (D30): elegir los servidores MCP.** Hay que verificar que el servidor de cada sistema:
+1. funcione con cuenta de servicio (sin login interactivo),
+2. permita búsquedas JQL/CQL con paginación y traer comentarios,
+3. permita listar y descargar archivos de SharePoint con sus autores.
+
+Esto se resuelve con una **tarea de investigación (spike) al inicio de la etapa 3**, evaluando el
+servidor oficial de cada proveedor y alternativas de la comunidad. Si alguno no cumple, ese conector
+usa la API REST del sistema directamente, sin cambiar la interfaz `SourceConnector`.
+
+### 5.5 Pipeline por documento
+
+```
+SourceDocument
+   │
+   ├─ ¿mismo content_hash que lo guardado? ──> sin cambios (HU4.4)
+   │
+   v
+ocultar secretos (5.6) ──> dividir en fragmentos ──> embeddings (en lotes) ──> reemplazo atómico (3.2)
+```
+
+**División en fragmentos**, según la estructura de cada tipo:
+
+| Tipo | Criterio |
+|---|---|
+| Markdown, Word, HTML, Confluence | Por encabezados; las secciones largas, por párrafos |
+| Texto plano, PDF | Por párrafos |
+| Correos | El correo entero si entra; si no, por párrafos |
+| Jira | Un fragmento con encabezado + descripción, y los comentarios agrupados en orden |
+
+- Tamaño objetivo ~1.200 caracteres, con ~150 de solapamiento entre fragmentos consecutivos de
+  una misma sección, para no cortar una idea a la mitad.
+- Cada fragmento lleva adelante su contexto: `[título > sección]`. Mejora la búsqueda y permite citar la sección.
+
+**Embeddings (D22):** `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensiones) como punto de partida.
+La evaluación (sección 8) lo compara con un modelo multilingüe más grande (por ejemplo,
+`multilingual-e5-large`); cambiarlo implica reindexar (3.2, tabla `meta`).
+
+### 5.6 Ocultamiento de secretos (HU15.4)
+
+Antes de dividir en fragmentos, el contenido pasa por una lista de **detectores** con expresiones
+regulares, cada uno con tests:
+
+| Detector | Ejemplos |
+|---|---|
+| Claves privadas | Bloques `-----BEGIN … PRIVATE KEY-----` |
+| Tokens de proveedores | AWS (`AKIA…`), GitHub (`ghp_…`), Slack (`xoxb-…`), OpenAI/OpenRouter (`sk-…`), JWT (`eyJ…`) |
+| Cadenas de conexión | `Password=…;`, `AccountKey=…` |
+| Credenciales en URLs | `https://usuario:clave@host` |
+| Pares clave-valor | `password: …`, `contraseña = …`, `pwd=…`, `api_key: …`, `secret: …` |
+
+- Cada coincidencia se reemplaza por `[dato oculto]` (texto configurable en `messages.yaml`).
+- Se cuentan por documento (`secrets_masked`) para el resumen (HU15.4).
+- Es una defensa contra lo **evidente**, no un detector perfecto: el set de evaluación incluye
+  documentos con secretos para medirlo.
+
+### 5.7 Perfil de la persona (HU9)
+
+- Si la carpeta no tiene `persona.md`, se crea con `display_name` derivado del nombre de la carpeta
+  (`juan-plataforma` → "Juan Plataforma") e `identities` vacío. Por eso la ingesta necesita **permiso
+  de escritura** sobre la carpeta raíz (solo para crear perfiles).
+- Si el perfil cambió (`profile_hash`), se actualiza la persona.
+- Si el perfil es inválido (YAML roto, campos con tipos incorrectos), se usan los valores por
+  defecto y se informa en el resumen (caso borde de la spec).
+
+### 5.8 Ejecución manual para desarrollo
+
+`flock-ingest run [--persona <id>] [--sources <archivo.json>]` corre el mismo pipeline sin Kafka:
+- Sin `--sources`, procesa solo las carpetas.
+- Con `--sources`, lee las fuentes externas de un archivo JSON con el mismo formato que `IngestionJob.sources`.
+- Imprime el resumen por persona.
+
+### 5.9 Cambios que esta sección introduce en la sección 2
+
+1. **`citations[].url` pasa a ser opcional** y se suma **`path`** (ruta relativa) para archivos de las
+   carpetas, que no tienen una URL navegable.
 
 ## 6. Core API y front
 
