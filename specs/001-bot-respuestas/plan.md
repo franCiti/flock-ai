@@ -1,6 +1,6 @@
 # Plan técnico: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** En redacción (secciones 1–8 de 9)
+**Estado:** Aprobado (2026-10-09, Francisco Neyrotte)
 **Spec:** [spec.md](spec.md) (aprobada) · **Decisiones:** [docs/decisiones.md](../../docs/decisiones.md)
 
 > El plan describe **cómo** se construye lo que pide la spec. Cada pieza indica qué historias
@@ -17,7 +17,7 @@
 6. [Core API y front](#6-core-api-y-front)
 7. [Seguridad e infraestructura](#7-seguridad-e-infraestructura)
 8. [Tests y evaluación](#8-tests-y-evaluación)
-9. Riesgos y mapa de cobertura de la spec — *pendiente*
+9. [Riesgos y mapa de cobertura de la spec](#9-riesgos-y-mapa-de-cobertura-de-la-spec)
 
 ---
 
@@ -1490,9 +1490,9 @@ cerrar cada etapa, junto con la evaluación (D41).
 - **Cuándo correrla:** **solo al cerrar cada etapa** (D41). Es la única instancia en la que se usa la
   API key de OpenRouter en el desarrollo; el resto del tiempo, los tests usan el LLM falso.
 
-> Los criterios de éxito hablan de "preguntas **reales**". Las personas ficticias sirven para
-> desarrollar; antes de dar el MVP por terminado, conviene sumar al menos una persona con conocimiento
-> real (con su consentimiento) y sus propios casos.
+> Los criterios de éxito hablan de "preguntas **reales**". Los cierres de etapa usan personas
+> ficticias; la validación con una persona con conocimiento real (con su consentimiento) y sus propios
+> casos la hace Francisco en sus pruebas en el entorno de desarrollo, fuera de los cierres de etapa.
 
 ### 8.7 Cómo se corre todo
 
@@ -1513,4 +1513,63 @@ cerrar cada etapa, junto con la evaluación (D41).
 
 ## 9. Riesgos y mapa de cobertura de la spec
 
-*Pendiente.*
+### 9.1 Etapas de construcción (D27)
+
+| Etapa | Qué se construye | Se demuestra con | Cierre |
+|---|---|---|---|
+| **1. Núcleo** | Contrato, infraestructura (Kafka y Postgres con mTLS), ingesta de carpetas, Agent Worker completo, auditoría, cliente `flock-ask` | Preguntas por línea de comandos sobre `examples/knowledge` | Tests en verde + evaluación + humo (D41) |
+| **2. Core API y front** | Login, chat con streaming y cuenta regresiva, auditoría en pantalla, actualización programada y manual, documentación publicada | Demo en el navegador | Ídem |
+| **3. Fuentes externas** | Spike de servidores MCP, conectores de Jira, Confluence y SharePoint, administración de fuentes en el front | Respuestas que citan issues y páginas reales | Ídem |
+
+Cada etapa deja algo **funcionando y demostrable**; la siguiente se apoya en ella sin rehacerla.
+
+### 9.2 Riesgos
+
+| # | Riesgo | Impacto | Mitigación |
+|---|---|---|---|
+| R1 | Los servidores MCP no permiten cuenta de servicio, JQL/CQL completos o listar SharePoint con autores (D30) | Alto en etapa 3 | Spike al inicio de la etapa 3; si no cumplen, API REST directa detrás de la misma interfaz (5.4) |
+| R2 | Calidad o latencia del modelo vía OpenRouter; no todos los modelos soportan bien salida estructurada | Alto | Modelo configurable; comparación con `flock-eval --models` al cerrar cada etapa (8.6) |
+| R3 | Prompts y parámetros se ajustan "a ciegas" entre cierres de etapa, porque la evaluación con LLM real solo corre al cerrarlas (D41) | Medio | Tests exhaustivos con LLM falso; los ajustes de calidad se concentran en el cierre de cada etapa |
+| R4 | Los embeddings locales rinden mal en español o con texto técnico | Medio | Búsqueda híbrida (4.3); la evaluación compara con un modelo más grande; cambiarlo implica solo reindexar |
+| R5 | Prompt injection: ninguna defensa es completa | Medio | Defensas en capas (4.5) y, sobre todo, un agente **sin tools con efectos**: lo peor es un texto incorrecto |
+| R6 | La detección de secretos por patrones deja pasar algunos | Medio | Detectores con tests; documentos con secretos en la evaluación; los secretos no evidentes son un límite conocido |
+| R7 | Privacidad: fragmentos de documentos pasan por OpenRouter y el proveedor del modelo | Medio | Desactivar registro y entrenamiento en la cuenta (D08); solo se envían los fragmentos relevantes; consentimiento de las personas reales |
+| R8 | Proxy corporativo y antivirus bloquean descargas, builds o Docker | Medio | `docs/notas-entorno.md`; certificado corporativo en los builds (7.8) |
+| R9 | Complejidad de mTLS, ACLs y Kafka en el entorno local | Medio | Todo automatizado en contenedores de un solo uso (7.5); un solo comando para levantar |
+| R10 | Volumen y límites de pedidos de Jira y Confluence | Bajo–medio | Sync incremental, paginación, reintentos con espera creciente (5.4) |
+| R11 | El alcance del MVP es grande (15 historias, 3 etapas) | Medio | Etapas demostrables por separado; backlog con tareas chicas |
+| R12 | Una app cliente podría declarar el `replyTo` de otra (2.1) | Bajo | Riesgo aceptado: todas las apps son internas y autorizadas |
+| R13 | Una sola instancia de la Core API y sesiones en memoria | Bajo | Aceptado para el MVP (3.4, 6.4) |
+| R14 | Falta la muestra `.msg` para los tests | Bajo | Tests escritos y omitidos hasta tener la muestra (8.1) |
+
+### 9.3 Mapa de cobertura de la spec
+
+Cada historia, dónde se resuelve, en qué etapa y cómo se verifica:
+
+| Historia | Plan | Etapa | Verificación |
+|---|---|---|---|
+| **HU1** Preguntar con fuentes e idioma | 2.3–2.4, 4.3 (`classify`, `retrieve`, `grade`, `generate`, `finalize`) | 1 | Grafo con LLM falso; evaluación `answerable` |
+| **HU2** No sé y derivar | 4.3 (`find_referral`, `canned_reply`), 4.4 | 1 | Grafo con LLM falso; evaluación `referral`, `no_information`, `partial` |
+| **HU3** Aislamiento entre personas | 3.2 (`persona_id` en `chunk`), 4.3 (`retrieve`), 4.5 | 1 | Integración del repositorio; evaluación `cross_persona` |
+| **HU4** Carga y actualización | 5.1–5.5, 3.2; programación y botón: 6.3, 6.5 | 1 (carpetas, CLI) · 2 (programada y manual) | Unitarios de store y parsers; integración de ingesta |
+| **HU5** Conversación con contexto | 3.3 (`conversation`, checkpoints), 4.3 (`standalone_query`) | 1 | Unitarios de retención; grafo con LLM falso |
+| **HU6** Respuesta progresiva y tiempo máximo | 2.4 (`accepted`, `token`, `final`, `error`), 4.1, 4.7; front: 6.4, 6.6 | 1 · 2 (pantalla) | Integración del worker; tests del front |
+| **HU7** Varias apps cliente | 2.1, 7.2 (tópicos y ACLs) | 1 | Integración con dos clientes |
+| **HU8** Registro | 3.3 (`audit_entry`), 3.5, 6.3, 6.6 | 1 (registro) · 2 (pantalla) | Integración; tests de la Core API |
+| **HU9** Perfil | 5.7, 3.2 (`persona`), 1.7 | 1 | Unitarios del perfil |
+| **HU10** Interfaz web | 6 completa | 2 | Tests del front y de la Core API; humo |
+| **HU11** Mensajes configurables | 1.3 (`messages.yaml`), 4.3 (`canned_reply`) | 1 | Unitarios de mensajes |
+| **HU12** Fuentes externas | 5.4, 2.5, 3.4 (`source`), 6.3, 6.6 | 3 | Spike; integración de conectores; humo con fuentes reales |
+| **HU13** Presentarse | 4.3 (`classify` → `canned_reply`), 4.5 (canario) | 1 | Grafo con LLM falso; evaluación `about_assistant` |
+| **HU14** Solo con la base | 4.3, 4.4, 4.5 | 1 | Evaluación `out_of_scope`, `small_talk`, `no_information` |
+| **HU15** Manipulación y datos | 4.1 (límites), 4.3 (`screen_input`, `finalize`), 4.5, 5.6, 6.6, 7 | 1 · 2 (front) | Unitarios de detectores; evaluación de ataques y `secret_leak` |
+
+| Requisito no funcional / criterio | Plan |
+|---|---|
+| Idioma de la respuesta | 4.3 (`classify.language`), 4.6 |
+| Tiempo máximo y primer fragmento | 4.7, 1.8, 8.6 |
+| Configuración sin cambiar el sistema | 1.8, 4.8 |
+| Documentación de interfaces | 2.7, 6.3 (D32, D33) |
+| Privacidad | 4.5, 7.4, R7 |
+| Disponibilidad (siempre activo) | 7.5 |
+| Criterios de éxito 1–4 | 8.6 |
