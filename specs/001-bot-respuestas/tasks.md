@@ -157,10 +157,13 @@
   `REFERRAL_MIN_SCORE` se compara contra ella, porque el puntaje de RRF solo ordena dentro de una búsqueda.
   El umbral y la confirmación con el LLM se aplican en `find_referral` (T23).
 
-**[ ] T22 — Nodos de entrada**
+**[x] T22 — Nodos de entrada**
 - Spec: HU13, HU14, HU15.1 · Plan: 4.3 · Depende de: T20
 - `screen_input`, `classify` y `canned_reply` (con adaptación de idioma).
 - **Hecho cuando:** tests con LLM falso para cada intención y para patrones de manipulación (y preguntas legítimas que no deben marcarse).
+- **Nota (2026-10-09):** los nodos son funciones `async` que reciben el estado y `Dependencies`
+  (`graph/deps.py`); T24 los conecta al grafo. Si falla la adaptación de idioma de un mensaje fijo,
+  se envía en español en lugar de un error. Un idioma que el clasificador no informa bien se toma como `es`.
 
 **[ ] T23 — Nodos de respuesta**
 - Spec: HU1, HU2 · Plan: 4.3 · Depende de: T21, T22
