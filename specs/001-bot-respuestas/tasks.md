@@ -71,7 +71,7 @@
 - Servicio KRaft en Compose, listener SSL con certificado obligatorio, contenedores `certs-init` y `kafka-init` (tópicos y ACLs).
 - **Hecho cuando:** `docker compose up` deja todo sano; cada usuario puede solo lo de su tabla de ACLs; sin certificado se rechaza.
 
-**[ ] T08 — Conexiones de Python**
+**[x] T08 — Conexiones de Python**
 - Plan: 1.3 (`common/`) · Depende de: T02, T06, T07
 - `tls.py`, `db.py` (pool asíncrono), `kafka.py` (productor y consumidor con aiokafka).
 - **Hecho cuando:** tests de integración publican y consumen un mensaje y consultan la base.

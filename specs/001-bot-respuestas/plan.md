@@ -1405,11 +1405,21 @@ Hay dos cosas distintas:
 verificar **cada camino** de la tabla 4.4 (cada `outcome`), el tiempo límite y los errores del LLM,
 sin red y siempre con el mismo resultado.
 
-**Integración** — con Postgres (pgvector) y Kafka reales en contenedores (`testcontainers`):
-- Repositorio: búsqueda híbrida, aislamiento por persona, reemplazo atómico, candado de ingesta.
-- Ingesta completa sobre `examples/knowledge`.
-- Agent Worker con LLM falso: un pedido en `agent.requests` produce `accepted` → `token`… → `final`;
-  pedidos repetidos, inválidos y con persona inexistente.
+**Integración** — con Postgres (pgvector) y Kafka reales, de dos formas según qué se prueba:
+
+| Qué se prueba | Contra qué | Por qué |
+|---|---|---|
+| Conexiones, TLS, roles y ACLs (T08) | El entorno de **Docker Compose** (`localhost:5433` y `localhost:9093`) con los certificados de `infra/certs/out/` | Es la única forma de ejercitar mTLS, roles y ACLs reales |
+| Lógica sobre tablas y mensajes (T09 en adelante): repositorio, búsqueda híbrida, ingesta, Agent Worker | Contenedores efímeros con **Testcontainers** | Base y tópicos limpios en cada corrida; TLS no influye en esa lógica |
+
+- Los tests contra Compose llevan la marca `integration_stack` y **se omiten** (con el motivo) si el
+  entorno no está levantado. No dejan rastro: las tablas de prueba se borran al terminar y Kafka se
+  lee **sin grupo de consumidores**, así no se mueven los offsets de los servicios reales.
+- Casos de Testcontainers:
+  - Repositorio: búsqueda híbrida, aislamiento por persona, reemplazo atómico, candado de ingesta.
+  - Ingesta completa sobre `examples/knowledge`.
+  - Agent Worker con LLM falso: un pedido en `agent.requests` produce `accepted` → `token`… → `final`;
+    pedidos repetidos, inválidos y con persona inexistente.
 
 ### 8.2 Tests de core-api (JUnit 5)
 

@@ -5,6 +5,9 @@ description = "flock-ai agent service: knowledge ingestion and the LangGraph age
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "aiokafka>=0.12",
+    "psycopg-pool>=3.2",
+    "psycopg[binary]>=3.2",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "truststore>=0.10",
@@ -22,8 +25,10 @@ dev = [
     "jsonschema[format-nongpl]>=4.23",
     "mypy>=1.13",
     "pytest>=8.3",
+    "pytest-asyncio>=0.24",
     "pyyaml>=6.0",
     "ruff>=0.8",
+    "trustme>=1.2",
     "types-jsonschema>=4.23",
     "types-pyyaml>=6.0",
 ]
@@ -79,6 +84,12 @@ plugins = ["pydantic.mypy"]
 mypy_path = "src"
 files = ["src", "tests"]
 
+# aiokafka ships no type information (no py.typed). The rest of the code only uses Kafka through
+# flock_agent.common.kafka, whose own signatures are typed.
+[[tool.mypy.overrides]]
+module = ["aiokafka", "aiokafka.*"]
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
@@ -90,3 +101,8 @@ warn_required_dynamic_aliases = true
 testpaths = ["tests"]
 # -ra lists the reason of every skipped test (e.g. missing .msg sample, T14).
 addopts = ["-ra", "--strict-markers", "--strict-config"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration_stack: needs the Docker Compose stack running (docker compose up -d --wait)",
+]

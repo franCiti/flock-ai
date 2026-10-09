@@ -45,6 +45,20 @@ class Settings(BaseSettings):
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
+    # Client certificate of this process (D17). Each container mounts only its own.
+    tls_cert_file: Path | None = None
+    tls_key_file: Path | None = None
+    tls_ca_file: Path | None = None
+
+    # PostgreSQL (plan section 7.3). The role must match the certificate CN mapping.
+    postgres_host: str = "localhost"
+    postgres_port: PositiveInt = 5433
+    postgres_db: str = "flock_ai"
+    postgres_user: str | None = None
+
+    # Kafka (plan section 7.2)
+    kafka_bootstrap_servers: str = "localhost:9093"
+
     # LLM (D08)
     openrouter_api_key: SecretStr | None = None
     llm_model: str | None = None

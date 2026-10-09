@@ -2,6 +2,9 @@
 
 import truststore
 
+# Imported before inject_into_ssl() runs: tls captures the standard library SSLContext, so
+# internal connections keep trusting only the flock-ai CA (see tls.py).
+from flock_agent.common import tls  # noqa: F401
 from flock_agent.common.logging import configure_logging
 from flock_agent.common.settings import Settings
 
