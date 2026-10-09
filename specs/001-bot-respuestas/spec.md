@@ -211,15 +211,13 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 5. Las fuentes **solo alimentan la base de conocimiento**: el bot no las consulta en vivo mientras responde.
 6. Las credenciales de acceso a las fuentes no se muestran en la interfaz una vez guardadas.
 7. De cada fuente se toma **solo lo que escribió la persona**:
-   - **Confluence:** páginas de las que es autora.
+   - **Confluence:** páginas que **creó o editó**.
    - **SharePoint:** archivos de los que es autora.
-   - **Jira:** issues en los que es **reporter** o **assignee**.
+   - **Jira:** issues en los que es **reporter** o **assignee**, incluyendo la descripción y
+     **todos sus comentarios** (también los de otras personas).
 8. **Dado** que la persona no tiene configurada su identidad en el perfil (HU9), **entonces** sus fuentes
    externas no se procesan y se informa en el resumen de la actualización.
 9. La actualización de estas fuentes sigue la misma programación que la de archivos (HU4).
-10. **[A CLARIFICAR]** Confluence: ¿"autora" es solo quien creó la página, o también quien la editó?
-11. **[A CLARIFICAR]** Jira: de esos issues, ¿se toman todos los comentarios (también los de otras personas)
-    o solo la descripción y los comentarios de la persona?
 
 ## Casos borde
 
@@ -272,7 +270,6 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 3. Consulta del registro de lo respondido (HU8).
 4. Campos del perfil de la persona (HU9).
 5. Mensajes configurables e idiomas (HU11).
-6. Fuentes externas: definición de autoría en Confluence y comentarios de Jira (HU12).
-7. Comportamiento durante una actualización del conocimiento.
-8. Objetivo de tiempo para el primer fragmento.
-9. Umbral de éxito del set de evaluación.
+6. Comportamiento durante una actualización del conocimiento.
+7. Objetivo de tiempo para el primer fragmento.
+8. Umbral de éxito del set de evaluación.

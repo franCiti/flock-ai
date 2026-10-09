@@ -179,8 +179,8 @@ conectores (D19). El agente **no** consulta estas fuentes en vivo mientras respo
 un agente; hay que verificar que permitan recorrer todo el contenido y detectar cambios y bajas
 (sync incremental). Si alguno no lo permite, ese conector puede usar la API del sistema directamente
 sin cambiar la interfaz.
-**Autoría:** solo se toma lo escrito por la persona (Confluence y SharePoint: autora; Jira: reporter
-o assignee). Para filtrar, el perfil de la persona guarda su identidad en esos sistemas (email).
+**Autoría:** solo se toma lo escrito por la persona (Confluence: páginas que creó o editó;
+SharePoint: autora; Jira: reporter o assignee, con descripción y todos los comentarios). Para filtrar, el perfil de la persona guarda su identidad en esos sistemas (email).
 
 ### D31 — Disparo de la ingesta: cada 30 min y manual · Aceptada (mecanismo: Propuesta)
 **Comportamiento (Aceptado):** automática cada 30 minutos (configurable) y manual desde la interfaz;
@@ -193,7 +193,7 @@ consume, procesa y publica el resultado en `ingestion.events`. Reemplaza el "sin
 La Core API genera su especificación OpenAPI desde el código (springdoc-openapi) y publica Swagger UI.
 **Motivo:** la API REST es interna (front ↔ Java); generarla desde el código evita que la doc quede desactualizada.
 
-### D33 — Documentación del contrato Kafka: AsyncAPI, contract-first · Propuesta
+### D33 — Documentación del contrato Kafka: AsyncAPI, contract-first · Aceptada
 El contrato público del agente (D23) se escribe **primero**, como especificación **AsyncAPI**
 (el equivalente a OpenAPI para mensajería) con los payloads en **JSON Schema**, dentro del repo
 (`contracts/`). De ese archivo se genera la documentación HTML navegable.
