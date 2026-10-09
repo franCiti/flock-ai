@@ -1,11 +1,10 @@
 # Especificación: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** Borrador (v2)
+**Estado:** Clarificada, pendiente de aprobación
 **Fecha:** 2026-10-09
 
 > Esta spec describe **qué** hace el sistema y **por qué**, no cómo se implementa.
 > Las decisiones técnicas están en [docs/decisiones.md](../../docs/decisiones.md).
-> Los puntos marcados **[A CLARIFICAR]** se resuelven en la fase de clarificación.
 
 ## Resumen
 
@@ -100,8 +99,9 @@ actualización, para que el bot use la información vigente.
 6. **Formatos soportados:**
    - cualquier archivo de **texto** (Markdown, texto plano, CSV, JSON, HTML, XML, logs, código...);
    - **PDF** y **Word** (.docx);
-   - **correos de Outlook guardados** (.msg): asunto, remitente, destinatarios, fecha y cuerpo.
-   - **[A CLARIFICAR]** ¿También correos .eml, y los adjuntos de los .msg?
+   - **correos guardados** (.msg de Outlook y .eml): asunto, remitente, destinatarios, fecha y cuerpo.
+   - los **adjuntos** de los correos que sean de un formato soportado se procesan como documentos
+     asociados al correo y se citan como "adjunto de *asunto del correo*".
 7. Los archivos que no se pueden leer como texto (imágenes, binarios, PDF escaneados) se omiten y se informan.
 8. La actualización se ejecuta **automáticamente cada 30 minutos** (intervalo configurable) y también
    se puede disparar **manualmente** desde la interfaz web o con un comando.
@@ -117,9 +117,8 @@ para no repetir el contexto en cada pregunta.
 1. **Dado** que en una conversación se preguntó "¿cómo hago un deploy?", **cuando** se pregunta
    "¿y si sale mal?", **entonces** el bot entiende que se refiere al deploy.
 2. **Dado** una conversación nueva, **entonces** el bot no usa el historial de otras conversaciones.
-3. Una conversación se conserva durante un **tiempo configurable** (por defecto, **1 día**).
-   Pasado ese tiempo, una nueva pregunta con el mismo identificador empieza sin historial.
-   **[A CLARIFICAR]** ¿El día se cuenta desde el inicio de la conversación o desde el último mensaje?
+3. Una conversación se conserva durante un **tiempo configurable** (por defecto, **1 día**) contado
+   desde su **último mensaje**. Pasado ese tiempo, una nueva pregunta con el mismo identificador empieza sin historial.
 
 ### HU6 — Respuesta progresiva con tiempo máximo · Prioridad P1
 
@@ -151,7 +150,8 @@ la calidad del bot.
 **Criterios de aceptación**
 1. **Dado** cualquier pregunta procesada, **entonces** queda registrada con: persona, app cliente,
    conversación, pregunta, respuesta, fuentes, derivación sugerida (si hubo) y fecha.
-2. **[A CLARIFICAR]** ¿Cómo consulta el operador ese registro en el MVP?
+2. El operador consulta el registro desde la **interfaz web**: una lista filtrable por persona, fecha y
+   casos marcados (intentos de manipulación, pedidos rechazados, derivaciones y "no tengo información").
 
 ### HU9 — Perfil de la persona virtual · Prioridad P1
 
@@ -167,8 +167,8 @@ nombre real y no el nombre de la carpeta.
 3. El archivo de perfil **no** forma parte del conocimiento: no se usa para responder preguntas.
 4. El perfil incluye la **identidad de la persona en los sistemas externos** (por ejemplo, su email),
    necesaria para tomar solo su contenido de Jira, Confluence y SharePoint (HU12).
-5. **[A CLARIFICAR]** Resto de los campos (propuesta mínima: nombre visible e identidad en sistemas
-   externos; se pueden sumar campos más adelante).
+5. En el MVP el perfil tiene solo **nombre visible** e **identidad en sistemas externos**; se pueden
+   sumar campos más adelante.
 
 ### HU10 — Interfaz web de demostración · Prioridad P2
 
@@ -194,8 +194,8 @@ sin cambiar el sistema.
    no tengo información, sugerencia de derivación, persona no encontrada, tiempo agotado y error general.
    Los mensajes pueden incluir datos del perfil de la persona (por ejemplo, su nombre visible).
 2. El sistema trae **valores por defecto** razonables para todos los mensajes.
-3. **[A CLARIFICAR]** Como el bot responde en el idioma de la pregunta: ¿el archivo tiene los mensajes
-   por idioma, o se escriben en un idioma y el bot los traduce?
+3. Los mensajes se escriben **en español**; el bot los adapta al idioma de la pregunta (HU1),
+   conservando su contenido.
 
 ### HU12 — Agregar fuentes externas de conocimiento · Prioridad P2
 
@@ -285,13 +285,14 @@ sensible, para poder ofrecerlo a otras aplicaciones con confianza.
 - Archivo sin texto extraíble (por ejemplo, un PDF escaneado): se omite y se informa en el resumen.
 - Perfil de persona con formato inválido: se informa en el resumen y se usan los valores por defecto.
 - El servicio del modelo de lenguaje no responde: la app recibe un error, no una respuesta vacía.
-- Pregunta mientras se está actualizando el conocimiento: **[A CLARIFICAR]** ¿responde con la versión anterior?
+- Pregunta mientras se está actualizando el conocimiento: responde con la versión disponible. Cada
+  documento se reemplaza de una sola vez al terminar de procesarse; nunca se responde con un documento a medio cargar.
 
 ## Requisitos no funcionales
 
 - **Idioma:** responde en el idioma de la pregunta.
-- **Tiempo de respuesta:** máximo configurable, por defecto 2 minutos (HU6).
-  **[A CLARIFICAR]** ¿Hay un objetivo para el primer fragmento?
+- **Tiempo de respuesta:** máximo configurable, por defecto 2 minutos (HU6). Objetivo (no garantía)
+  para el primer fragmento: **10 segundos**, configurable; se mide para detectar degradaciones.
 - **Configuración:** retención de conversaciones, tiempo máximo, intervalo de actualización, límites
   de uso y mensajes se configuran sin cambiar el sistema.
 - **Documentación de interfaces:** la API web tiene documentación interactiva, y el contrato de
@@ -308,7 +309,7 @@ sensible, para poder ofrecerlo a otras aplicaciones con confianza.
    respuesta esperada, que incluye preguntas que debe derivar a otra persona, preguntas fuera de
    ámbito y **casos de ataque** (inyección directa, documentos "envenenados", intentos de filtración
    entre personas).
-2. **[A CLARIFICAR]** Porcentaje mínimo de respuestas correctas y con fuente.
+2. Al menos el **80 %** de las preguntas respondibles del set se responden correctamente y con fuente.
 3. Ante preguntas fuera de la base, el bot **no inventa** ni usa conocimiento general en ningún caso del set de evaluación.
 4. El bot no cae en **ningún** caso de ataque del set de evaluación.
 
@@ -323,14 +324,3 @@ sensible, para poder ofrecerlo a otras aplicaciones con confianza.
 
 - **Preguntas frecuentes por persona:** poder preguntarle al bot cuáles son las preguntas más
   frecuentes que se le hacen a una persona virtual.
-
-## Preguntas abiertas
-
-1. Formatos: ¿.eml y adjuntos de .msg? (HU4)
-2. Retención: ¿desde el inicio o desde el último mensaje? (HU5)
-3. Consulta del registro de lo respondido (HU8).
-4. Campos del perfil de la persona (HU9).
-5. Mensajes configurables e idiomas (HU11).
-6. Comportamiento durante una actualización del conocimiento.
-7. Objetivo de tiempo para el primer fragmento.
-8. Umbral de éxito del set de evaluación.
