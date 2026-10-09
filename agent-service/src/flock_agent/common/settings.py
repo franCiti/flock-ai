@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     knowledge_root: Path = Path("data/knowledge")
     max_file_mb: PositiveInt = 20
 
+    # Embeddings (plan 5.5, D22). Changing the model re-indexes the whole knowledge base.
+    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_cache_dir: Path = Path("data/models")
+    embedding_batch_size: PositiveInt = 32
+
     @property
     def effective_fast_model(self) -> str | None:
         """The fast model defaults to the main model (plan section 4.7)."""

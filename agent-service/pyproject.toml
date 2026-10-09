@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "aiokafka>=0.12",
+    "fastembed>=0.4",
     "pgvector>=0.3",
     "psycopg-pool>=3.2",
     "psycopg[binary]>=3.2",
@@ -110,4 +111,5 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration_stack: needs the Docker Compose stack running (docker compose up -d --wait)",
     "integration_containers: starts ephemeral containers with Testcontainers (needs Docker)",
+    "embedding_model: loads the real embedding model (downloaded once into data/models)",
 ]

@@ -40,3 +40,6 @@ agent-service/_codegen_check_*/
 
 # Generated contract documentation
 contracts/docs/
+
+# Runtime data: knowledge folders and downloaded models
+data/

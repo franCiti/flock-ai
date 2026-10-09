@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from pgvector import Vector
+from psycopg import sql
 from psycopg.rows import class_row, dict_row
 from psycopg.types.json import Jsonb
 
@@ -23,6 +24,10 @@ from flock_agent.knowledge.models import (
 # Session-level advisory lock that allows a single ingestion at a time (spec HU4.9).
 # Any 64-bit number works, as long as every process uses the same one.
 INGESTION_LOCK_KEY = 0x666C6F636B_0001  # "flock" + 1
+
+# Keys of the meta table.
+META_EMBEDDING_MODEL = "embedding_model"
+META_DIMENSIONS = "embedding_dimensions"
 
 
 class IngestionAlreadyRunningError(RuntimeError):
@@ -251,6 +256,32 @@ class KnowledgeRepository:
                 yield
             finally:
                 await connection.execute("SELECT pg_advisory_unlock(%s)", (INGESTION_LOCK_KEY,))
+
+    # --- Embedding model ----------------------------------------------------------------------
+
+    async def reset_for_embedding_model(self, model_name: str, dimensions: int) -> None:
+        """Prepare the knowledge base for another embedding model, in one transaction.
+
+        Vectors of different models are not comparable: every document is deleted (chunks go in
+        cascade) and every sync cursor too, so the next update re-indexes everything. Personas
+        are kept. The vector column is rebuilt with the new dimensions (its index follows).
+        Must run while holding the ingestion lock.
+        """
+        alter = sql.SQL("ALTER TABLE chunk ALTER COLUMN embedding TYPE public.vector({})").format(
+            sql.Literal(dimensions)
+        )
+        async with self._pool.connection() as connection, connection.transaction():
+            await connection.execute("DELETE FROM document")
+            await connection.execute("DELETE FROM sync_state")
+            await connection.execute(alter)
+            for key, value in ((META_EMBEDDING_MODEL, model_name), (META_DIMENSIONS, dimensions)):
+                await connection.execute(
+                    """
+                    INSERT INTO meta (key, value) VALUES (%s, %s)
+                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                    """,
+                    (key, str(value)),
+                )
 
     # --- Meta -------------------------------------------------------------------------------
 

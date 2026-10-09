@@ -84,7 +84,7 @@
   Reemplazo atómico por documento y candado de ingesta.
 - **Hecho cuando:** tests de integración prueban el reemplazo atómico, el borrado en cascada y el candado.
 
-**[ ] T10 — Embeddings**
+**[x] T10 — Embeddings**
 - Plan: 5.5 · Decisiones: D22 · Depende de: T02
 - Interfaz `Embedder`, implementación con fastembed, caché del modelo, control de modelo en `meta` (reindexar si cambia).
 - **Hecho cuando:** tests verifican dimensiones, lotes y la detección de cambio de modelo.
