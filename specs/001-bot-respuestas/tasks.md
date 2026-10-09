@@ -112,7 +112,7 @@
 - Interfaz `SourceConnector`, `FileStore`, `LocalFolderStore` y `FilesConnector`.
 - **Hecho cuando:** tests de altas, cambios, bajas y archivos ignorados.
 
-**[ ] T16 — Perfil de persona**
+**[x] T16 — Perfil de persona**
 - Spec: HU9 · Plan: 5.7 · Depende de: T02
 - **Hecho cuando:** tests de creación por defecto, cambios detectados y YAML inválido.
 
