@@ -250,6 +250,11 @@ Todo levanta con un comando: Kafka (modo KRaft), Postgres + pgvector y los servi
 - **React:** Vitest.
 - **Evaluación:** un runner del set de evaluación que mide los criterios de éxito de la spec y permite comparar modelos (D08).
 
+### D41 — El LLM real solo se usa al cerrar cada etapa · Aceptada
+Durante el desarrollo, los tests usan un LLM falso y no consumen la API key. La evaluación de
+calidad y la prueba de humo de punta a punta, que sí usan OpenRouter, se corren solo al cerrar cada etapa.
+**Motivo:** controlar el gasto de tokens.
+
 ---
 
 ## Abiertas
