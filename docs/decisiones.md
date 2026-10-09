@@ -21,9 +21,13 @@ Spec → plan → backlog → implementación, con aprobación explícita en cad
 Conversación, specs y documentación en **español**. **Todo el código en inglés**
 (identificadores, comentarios, docstrings, logs).
 
-### D03 — Linters obligatorios · Aceptada (herramientas: Abierta)
+### D03 — Linters obligatorios · Aceptada
 Template básico de linters por lenguaje; todo el código debe pasarlos.
-**Pendiente:** elegir herramientas (propuesta para Python: Ruff + mypy; Java y TypeScript sin definir).
+- **Python:** Ruff (lint + formato) y mypy en modo estricto.
+- **Java:** Spotless (formato) y Checkstyle.
+- **TypeScript:** ESLint, Prettier y `tsc` en modo estricto.
+
+Corren en **pre-commit hooks** y con un comando único que ejecuta todos.
 
 ---
 
@@ -46,8 +50,13 @@ uv gestiona versión de Python, entorno virtual y dependencias.
 
 ### D07 — Orquestación del agente: LangGraph · Aceptada
 
-### D08 — LLM: Claude vía API de Anthropic · Propuesta
-La API key vive **solo** en el entorno del Agent Worker.
+### D08 — LLM: vía OpenRouter, modelo configurable · Aceptada
+El Agent Worker accede al modelo a través de **OpenRouter** (API compatible con OpenAI).
+El modelo es **configuración**: se elige comparando modelos con el set de evaluación.
+Requisitos del modelo elegido: streaming y tool calling.
+La API key vive **solo** en el entorno del Agent Worker (archivo `.env`, nunca en el repo).
+**Privacidad:** en la cuenta de OpenRouter se desactiva el registro de prompts y el uso de datos para entrenamiento.
+*Reemplaza la propuesta original: Claude vía API de Anthropic (Claude sigue disponible a través de OpenRouter).*
 
 ### D09 — Comunicación: Kafka asíncrono, REST síncrono · Aceptada
 - **Kafka:** lo que tarda o se puede reintentar (preguntas al agente, ingestas, comandos).
@@ -101,7 +110,7 @@ Todas las conexiones internas usan certificado de cliente: apps cliente ↔ Kafk
 Python ↔ Kafka, Python ↔ Postgres y, post-MVP, Java ↔ Kafka, Java ↔ Postgres y Python → Core API (MCP).
 Los certificados de cada servicio los firma una **CA propia** (autofirmada).
 **Motivo:** cada servicio confía en una sola CA; sumar servicios no obliga a tocar los demás.
-**Excepción:** la llamada a la API de Claude sale a internet con TLS estándar + API key.
+**Excepción:** la llamada al LLM (OpenRouter) sale a internet con TLS estándar + API key.
 
 ### D18 — Permisos por persona virtual · Aceptada (validación de usuarios: Post-MVP)
 El permiso se otorga sobre la **base de conocimiento completa** de una persona virtual, no por documento.
@@ -128,9 +137,9 @@ incremental de cambios y bajas) de **cómo se leen** (parsers por tipo: texto, p
 ### D21 — RAG vs. consulta en vivo · Reemplazada por D30
 Proponía consultar en vivo los datos que cambian. En el MVP las fuentes externas solo alimentan la base.
 
-### D22 — Embeddings · Aceptada (dev) / Abierta (prod)
-Dev: modelo local multilingüe (fastembed), sin API key.
-Prod: abierto (local o proveedor como Voyage AI).
+### D22 — Embeddings locales · Aceptada
+Modelo local multilingüe (fastembed), sin API key, en desarrollo y en el MVP desplegado.
+Detrás de una interfaz: se puede cambiar por un proveedor externo sin tocar el resto.
 
 ---
 
@@ -205,8 +214,33 @@ pero documentaría solo el lado Java.
 
 ---
 
+## Organización y entrega
+
+### D34 — SDD manual, compatible con Spec Kit · Aceptada
+Cada feature vive en `specs/NNN-nombre/` con `spec.md`, `plan.md` y `tasks.md`.
+
+### D35 — Monorepo · Aceptada
+```
+contracts/       AsyncAPI + JSON Schema (contrato público del agente)
+agent-service/   Python: un proyecto, dos procesos (agente e ingesta)
+core-api/        Java (Maven)
+web/             React + TypeScript
+infra/           Docker Compose, scripts de CA y certificados
+docs/  specs/
+```
+
+### D36 — Build de Java: Maven · Aceptada
+
+### D37 — Despliegue del MVP: local con Docker Compose · Aceptada
+Todo levanta con un comando: Kafka (modo KRaft), Postgres + pgvector y los servicios. La nube queda para después.
+
+### D38 — Estrategia de tests · Aceptada
+- **Python:** pytest.
+- **Java:** JUnit 5 + Testcontainers (Kafka y Postgres reales).
+- **React:** Vitest.
+- **Evaluación:** un runner del set de evaluación que mide los criterios de éxito de la spec y permite comparar modelos (D08).
+
+---
+
 ## Abiertas
-- Herramienta de SDD (GitHub Spec Kit o manual).
-- Herramientas de lint por lenguaje (D03).
-- Embeddings de producción (D22).
-- Despliegue (dónde y cómo).
+- Despliegue fuera del entorno local.

@@ -25,7 +25,7 @@ más: están en el MVP para demostrarlo y administrar fuentes, pero el bot no de
  └──────────────┬─────────────────────────────────────────▲────────┘
                 v                                         │ tokens + respuesta final
  ┌─────────────────────────────────────────────────────────┴───────┐      ┌───────────────┐
- │  Agent Worker (Python 3.12 + LangGraph)                         │─TLS─>│ API de Claude │
+ │  Agent Worker (Python 3.12 + LangGraph)                         │─TLS─>│ LLM (OpenRtr) │
  │  busca en la base de la persona · responde con citas o "no sé"  │      └───────────────┘
  │  memoria de conversación · auditoría                            │
  └──────────────┬──────────────────────────────────────────────────┘
@@ -47,7 +47,7 @@ más: están en el MVP para demostrarlo y administrar fuentes, pero el bot no de
 
 | Componente | Lenguaje | Responsabilidad |
 |---|---|---|
-| **Agent Worker** | Python 3.12 / LangGraph | Consume `agent.requests`; busca solo en la base de la persona pedida; llama a Claude; responde con citas o dice que no sabe; publica tokens y respuesta final en el `replyTo`; guarda memoria de conversación y auditoría (D26) |
+| **Agent Worker** | Python 3.12 / LangGraph | Consume `agent.requests`; busca solo en la base de la persona pedida; llama al LLM vía OpenRouter; responde con citas o dice que no sabe; publica tokens y respuesta final en el `replyTo`; guarda memoria de conversación y auditoría (D26) |
 | **Ingesta** | Python 3.12 | Comando manual: recorre la carpeta raíz, una subcarpeta por persona; indexa archivos nuevos y modificados y quita los borrados (D29) |
 | **Cliente de prueba** | Python 3.12 | CLI para enviar preguntas por Kafka y mostrar la respuesta, como lo haría cualquier app cliente |
 | **Kafka** | — | Transporte del contrato público (D23–D25) |
@@ -86,7 +86,7 @@ App cliente               Kafka                    Agent Worker               Po
     │                     │                          │── historial (conversación)─>│
     │                     │                          │── búsqueda en la base ─────>│
     │                     │                          │   de la persona             │
-    │                     │                          │── llama a Claude (stream)   │
+    │                     │                          │── llama al LLM (stream)     │
     │<─ agent.replies.x ──│<──── tokens agrupados ───│                            │
     │<─ agent.replies.x ──│<──── respuesta final ────│── auditoría ──────────────>│
     │                     │      + citas             │                            │
@@ -98,7 +98,7 @@ App cliente               Kafka                    Agent Worker               Po
 |---|---|
 | App cliente ↔ Kafka | mTLS con certificado de la app + ACLs por tópico (D17, D25) |
 | Workers ↔ Kafka / Postgres | mTLS con certificados de la CA propia (D17) |
-| Agent Worker → API de Claude | TLS estándar + API key (solo en el Agent Worker) |
+| Agent Worker → LLM (OpenRouter) | TLS estándar + API key (solo en el Agent Worker) |
 | Aislamiento entre personas | El agente solo busca en la base del `personaId` del pedido (D18) |
 
 ## MVP — etapas 2 y 3: app Java, front y fuentes externas
