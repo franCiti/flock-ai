@@ -35,7 +35,8 @@ La app principal (dominio, usuarios, API) es Java; el agente y la ingesta son wo
 loaders, SDKs) está más maduro en Python. La velocidad no es el criterio: el cuello de
 botella es la latencia del LLM.
 **Alternativa descartada:** todo en Java (Spring AI / LangChain4j), más simple pero con menos ecosistema.
-**Nota:** desde D23 la app Java es un cliente más del agente y queda para después del MVP.
+**Nota:** desde D23 la app Java es un cliente más del agente. Entra en el MVP como backend
+del front y administrador de fuentes (D27).
 
 ### D05 — Stack Java: Java 21 + Spring Boot · Aceptada
 Incluye Spring Security (D16) y Spring AI para el servidor MCP (D14).
@@ -54,7 +55,9 @@ La API key vive **solo** en el entorno del Agent Worker.
 
 **Motivo:** el front nunca espera al LLM; los workers escalan por particiones; los servicios quedan desacoplados.
 
-### D10 — Frontend: React + TypeScript · Post-MVP
+### D10 — Frontend: React + TypeScript · Aceptada
+Chat de demostración y administración de fuentes; usa el design system de Flock
+(skill `.claude/skills/flock-design-system`).
 Habla **solo** con la Core API (REST + SSE). Nunca con Python ni con el LLM.
 
 ### D11 — Streaming: token por token + evento final · Aceptada
@@ -88,7 +91,7 @@ El producto no lo necesita al inicio; puede incorporarse más adelante (supervis
 
 ## Seguridad
 
-### D16 — Autenticación del usuario: Spring Security + cookie de sesión · Post-MVP
+### D16 — Autenticación del usuario: Spring Security + cookie de sesión · Aceptada
 Login con formulario y sesión por cookie (`HttpOnly`, `Secure`, `SameSite`).
 Usuarios en **tabla** (no en memoria) para facilitar la migración a SSO.
 MVP: **un solo usuario**. A futuro: proveedor de SSO.
@@ -117,12 +120,13 @@ Cada fuente implementa la misma interfaz y produce documentos normalizados; el p
 (chunking, embeddings, guardado) no sabe de dónde viene cada documento.
 Fuentes previstas: archivos, Confluence, Jira, mail (el mail al final, por ser sensible).
 
-### D20 — Fuente archivos: carpeta local en dev, SharePoint en prod · Aceptada
-Se separa **dónde viven** los archivos (store: local / SharePoint, con sync incremental de
-cambios y bajas) de **cómo se leen** (parsers por tipo: md, txt, pdf, docx...). *Separación: Propuesta.*
+### D20 — Fuente archivos: carpeta local y SharePoint · Aceptada
+Se separa **dónde viven** los archivos (store: carpeta local o SharePoint vía MCP (D30), con sync
+incremental de cambios y bajas) de **cómo se leen** (parsers por tipo: texto, pdf, docx, msg...).
+*Separación: Propuesta.*
 
-### D21 — RAG vs. consulta en vivo · Propuesta
-El conocimiento estable se indexa; los datos que cambian (p. ej. el estado actual de un Jira) se consultan como tool.
+### D21 — RAG vs. consulta en vivo · Reemplazada por D30
+Proponía consultar en vivo los datos que cambian. En el MVP las fuentes externas solo alimentan la base.
 
 ### D22 — Embeddings · Aceptada (dev) / Abierta (prod)
 Dev: modelo local multilingüe (fastembed), sin API key.
@@ -134,7 +138,7 @@ Prod: abierto (local o proveedor como Voyage AI).
 
 ### D23 — El agente es el producto; su contrato en Kafka es su API pública · Aceptada
 Cualquier app puede consumir el bot publicando en Kafka, sin pasar por la app Java.
-La app Java y el front son un cliente más (post-MVP).
+La app Java y el front son un cliente más.
 El formato de los mensajes es un **contrato versionado** (campo `version` + esquema formal);
 no se cambia de forma incompatible sin una versión nueva.
 
@@ -152,11 +156,13 @@ El agente recuerda cada conversación por `conversationId` (checkpointer de Lang
 registra pregunta, respuesta y fuentes en su schema `agent`. Ningún cliente necesita
 implementar memoria.
 
-### D27 — Alcance del MVP: el bot que responde · Aceptada
-**Incluye:** ingesta desde carpeta, agente que responde con citas o dice que no sabe,
-contrato Kafka y un cliente de prueba por línea de comandos.
-**Después:** app Java + front, tools (MCP), administrador de conectores, SharePoint,
-Confluence, Jira, SSO.
+### D27 — Alcance del MVP · Aceptada
+**Incluye:** ingesta desde carpetas y desde Jira, Confluence y SharePoint (D30); agente que
+responde con citas, dice que no sabe y deriva; contrato Kafka; cliente de prueba por línea de
+comandos; app Java (backend del front, login de un usuario, administración de fuentes) y front React.
+**Después:** tools para ejecutar tareas (D13, D14), SSO y permisos por usuario, correo como fuente directa.
+**Orden de construcción propuesto:** (1) bot por Kafka + cliente CLI, (2) app Java + front,
+(3) fuentes externas vía MCP.
 
 ### D28 — El bot está siempre activo · Aceptada
 Responde siempre que el servicio esté levantado; no hay lógica de disponibilidad o ausencia del empleado.
@@ -165,6 +171,17 @@ Responde siempre que el servicio esté levantado; no hay lógica de disponibilid
 Una carpeta raíz con **una subcarpeta por persona virtual**; el nombre de la subcarpeta es el `personaId`.
 La ingesta se ejecuta con un **comando manual**. No usa Kafka (los tópicos `ingestion.*` quedan
 para cuando exista el administrador).
+**Abierto:** con la administración de fuentes en el MVP (D27), falta decidir si la actualización
+también se dispara desde la interfaz (spec HU12).
+
+### D30 — Jira, Confluence y SharePoint se leen vía MCP, solo para ingesta · Aceptada
+La ingesta usa clientes MCP contra servidores MCP de cada sistema para leer su contenido y
+construir la base de conocimiento. Cada uno es una implementación más de la interfaz de
+conectores (D19). El agente **no** consulta estas fuentes en vivo mientras responde.
+**Riesgo a evaluar en el plan:** los servidores MCP están pensados para consultas puntuales de
+un agente; hay que verificar que permitan recorrer todo el contenido y detectar cambios y bajas
+(sync incremental). Si alguno no lo permite, ese conector puede usar la API del sistema directamente
+sin cambiar la interfaz.
 
 ---
 

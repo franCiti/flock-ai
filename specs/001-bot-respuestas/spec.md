@@ -1,6 +1,6 @@
 # Especificación: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** Borrador
+**Estado:** Borrador (v2)
 **Fecha:** 2026-10-09
 
 > Esta spec describe **qué** hace el sistema y **por qué**, no cómo se implementa.
@@ -10,10 +10,14 @@
 ## Resumen
 
 Un bot que responde preguntas usando el conocimiento de un empleado: su documentación,
-sus procedimientos, sus respuestas frecuentes. Cada empleado se representa con una
-**persona virtual** que tiene su propia base de conocimiento.
+sus procedimientos, sus correos, sus respuestas frecuentes. Cada empleado se representa con
+una **persona virtual** que tiene su propia base de conocimiento.
 
-El bot es un servicio que **otras aplicaciones consumen**: no tiene interfaz propia en el MVP.
+El bot es un servicio que **otras aplicaciones consumen**. Además, el MVP incluye una
+**interfaz web** para conversar con el bot y para administrar las fuentes de conocimiento de
+cada persona; esa interfaz es un cliente más y el bot no depende de ella.
+
+El conocimiento proviene de archivos en carpetas y de **Jira, Confluence y SharePoint**.
 
 ## Problema
 
@@ -26,8 +30,9 @@ pero disperso y difícil de encontrar.
 | Actor | Descripción |
 |---|---|
 | **App cliente** | Cualquier aplicación autorizada que envía preguntas al bot y recibe las respuestas |
-| **Persona virtual** | Representa a un empleado; tiene un identificador y una base de conocimiento propia |
-| **Operador** | Quien carga los archivos de cada persona y ejecuta la actualización del conocimiento |
+| **Usuario de la demo** | Persona que usa la interfaz web para conversar con una persona virtual |
+| **Persona virtual** | Representa a un empleado; tiene un identificador, un perfil y una base de conocimiento propia |
+| **Operador** | Quien carga el conocimiento de cada persona (archivos y fuentes externas), ejecuta la actualización y configura el bot |
 
 ## Historias de usuario
 
@@ -43,19 +48,28 @@ una respuesta basada en su conocimiento, para resolver dudas sin depender del em
 2. **Dado** una respuesta basada en documentos, **entonces** incluye las **fuentes** usadas
    (qué documento y, si es posible, qué sección).
 3. **Dado** cualquier respuesta, **entonces** el bot se presenta como el **asistente** de esa
-   persona y nunca como la persona misma.
+   persona (usando su nombre visible, HU9) y nunca como la persona misma.
+4. **Dado** una pregunta en un idioma, **entonces** el bot responde **en ese mismo idioma**,
+   aunque los documentos estén en otro.
 
-### HU2 — Decir "no sé" en lugar de inventar · Prioridad P1
+### HU2 — Cuando no sabe: decirlo y derivar · Prioridad P1
 
-Como **app cliente**, quiero que el bot reconozca cuándo no tiene información, para no
-recibir respuestas inventadas.
+Como **app cliente**, quiero que el bot reconozca cuándo no tiene información y, si otra
+persona virtual podría saberlo, me lo indique, para no recibir respuestas inventadas y saber a quién recurrir.
 
 **Criterios de aceptación**
 1. **Dado** una pregunta sin información relevante en la base de la persona,
-   **entonces** el bot responde que no encontró información sobre eso y **no** da una respuesta inventada.
-2. **Dado** una pregunta respondida parcialmente por la base, **entonces** el bot responde lo que
-   tiene respaldado y aclara qué parte no pudo encontrar.
-3. **[A CLARIFICAR]** Cuando no sabe, ¿sugiere algo? (contactar al empleado, otra persona virtual, nada).
+   **entonces** el bot responde que no tiene esa información y **no** inventa una respuesta.
+2. **Dado** ese caso, **entonces** el bot busca en las bases de las **otras** personas virtuales y,
+   si encuentra a alguna que probablemente pueda ayudar, sugiere:
+   "pregúntale a *Ana Gómez*, creo que puede ayudarte con eso".
+3. **Dado** una sugerencia de derivación, **entonces** el bot **no responde con el contenido** de la
+   otra persona: solo la recomienda.
+4. **Dado** que ninguna otra persona tiene información relevante, **entonces** el bot solo responde
+   que no tiene esa información.
+5. **Dado** una pregunta respondida parcialmente, **entonces** el bot responde lo que tiene respaldado
+   y aclara qué parte no pudo encontrar.
+6. Los mensajes de estos casos son configurables (HU11).
 
 ### HU3 — Aislamiento entre personas · Prioridad P1
 
@@ -63,10 +77,11 @@ Como **operador**, quiero que cada persona virtual responda solo con su propio c
 para que no se mezclen áreas ni información.
 
 **Criterios de aceptación**
-1. **Dado** que solo "ana-datos" tiene información sobre un tema, **cuando** se le pregunta
-   sobre ese tema a "juan-plataforma", **entonces** el bot responde que no tiene información.
-2. **Dado** un pedido a una persona que no existe, **entonces** el bot responde con un error
-   claro ("persona no encontrada") y no intenta contestar.
+1. **Dado** que solo "ana-datos" tiene información sobre un tema, **cuando** se le pregunta sobre ese
+   tema a "juan-plataforma", **entonces** el bot responde que no tiene esa información y sugiere
+   preguntarle a Ana (HU2), sin incluir el contenido de la base de Ana.
+2. **Dado** un pedido a una persona que no existe, **entonces** el bot responde con un error claro
+   ("persona no encontrada") y no intenta contestar.
 
 ### HU4 — Cargar y actualizar el conocimiento · Prioridad P1
 
@@ -82,7 +97,12 @@ actualización, para que el bot use la información vigente.
 4. **Dado** que nada cambió, **cuando** se ejecuta la actualización, **entonces** no se reprocesa nada.
 5. **Cuando** termina la actualización, **entonces** se informa un resumen por persona:
    agregados, modificados, borrados, sin cambios y omitidos (con el motivo).
-6. Formatos soportados: Markdown, texto plano, PDF y Word (.docx). Los demás se omiten y se informan.
+6. **Formatos soportados:**
+   - cualquier archivo de **texto** (Markdown, texto plano, CSV, JSON, HTML, XML, logs, código...);
+   - **PDF** y **Word** (.docx);
+   - **correos de Outlook guardados** (.msg): asunto, remitente, destinatarios, fecha y cuerpo.
+   - **[A CLARIFICAR]** ¿También correos .eml, y los adjuntos de los .msg?
+7. Los archivos que no se pueden leer como texto (imágenes, binarios, PDF escaneados) se omiten y se informan.
 
 ### HU5 — Conversación con contexto · Prioridad P2
 
@@ -93,17 +113,21 @@ para no repetir el contexto en cada pregunta.
 1. **Dado** que en una conversación se preguntó "¿cómo hago un deploy?", **cuando** se pregunta
    "¿y si sale mal?", **entonces** el bot entiende que se refiere al deploy.
 2. **Dado** una conversación nueva, **entonces** el bot no usa el historial de otras conversaciones.
-3. **[A CLARIFICAR]** ¿Cuánto tiempo se conserva una conversación?
+3. Una conversación se conserva durante un **tiempo configurable** (por defecto, **1 día**).
+   Pasado ese tiempo, una nueva pregunta con el mismo identificador empieza sin historial.
+   **[A CLARIFICAR]** ¿El día se cuenta desde el inicio de la conversación o desde el último mensaje?
 
-### HU6 — Respuesta progresiva · Prioridad P2
+### HU6 — Respuesta progresiva con tiempo máximo · Prioridad P1
 
 Como **app cliente**, quiero recibir la respuesta a medida que se genera y, al final, la
-respuesta completa, para mostrar avance al usuario y guardar el resultado final.
+respuesta completa, dentro de un tiempo máximo, para mostrar avance y no esperar indefinidamente.
 
 **Criterios de aceptación**
 1. **Dado** una pregunta, **entonces** la app recibe fragmentos de la respuesta a medida que se generan.
 2. **Al terminar**, la app recibe un mensaje final con la respuesta completa y sus fuentes.
-3. **Si** ocurre un error en medio de la respuesta, **entonces** la app recibe un mensaje de error
+3. El tiempo máximo de respuesta es **configurable** (por defecto, **2 minutos**). Si se supera,
+   el bot deja de procesar y la app recibe un mensaje de **tiempo agotado**.
+4. **Si** ocurre un error en medio de la respuesta, **entonces** la app recibe un mensaje de error
    que le permite distinguirlo de una respuesta completa.
 
 ### HU7 — Varias apps cliente · Prioridad P2
@@ -122,51 +146,116 @@ la calidad del bot.
 
 **Criterios de aceptación**
 1. **Dado** cualquier pregunta procesada, **entonces** queda registrada con: persona, app cliente,
-   conversación, pregunta, respuesta, fuentes y fecha.
+   conversación, pregunta, respuesta, fuentes, derivación sugerida (si hubo) y fecha.
 2. **[A CLARIFICAR]** ¿Cómo consulta el operador ese registro en el MVP?
+
+### HU9 — Perfil de la persona virtual · Prioridad P1
+
+Como **operador**, quiero definir cómo se presenta cada persona virtual, para que el bot use su
+nombre real y no el nombre de la carpeta.
+
+**Criterios de aceptación**
+1. **Dado** una subcarpeta sin archivo de perfil, **cuando** se ejecuta la actualización, **entonces**
+   se crea el archivo de perfil con valores por defecto tomados del nombre de la carpeta
+   ("juan-plataforma" → nombre visible "Juan Plataforma").
+2. **Dado** que el operador editó el perfil, **cuando** se ejecuta la actualización, **entonces** el bot
+   usa los datos nuevos.
+3. El archivo de perfil **no** forma parte del conocimiento: no se usa para responder preguntas.
+4. **[A CLARIFICAR]** Campos del perfil (propuesta: nombre visible, área o rol, y una descripción breve
+   de sus temas, que también ayuda a elegir a quién derivar en HU2).
+
+### HU10 — Interfaz web de demostración · Prioridad P2
+
+Como **usuario de la demo**, quiero conversar con una persona virtual desde el navegador, para ver
+el bot funcionando sin integrar otra aplicación.
+
+**Criterios de aceptación**
+1. Para usar la interfaz tengo que **iniciar sesión**. En el MVP existe un único usuario.
+2. Puedo elegir con qué persona virtual conversar.
+3. Veo la respuesta a medida que se genera y, al final, sus **fuentes** y la **derivación** si la hubo.
+4. Mientras espero la respuesta, veo una **cuenta regresiva** con el tiempo máximo restante (HU6).
+5. Si se agota el tiempo o hay un error, la interfaz lo muestra con claridad.
+6. Puedo empezar una conversación nueva.
+7. La interfaz usa el sistema de diseño de Flock.
+
+### HU11 — Mensajes configurables · Prioridad P2
+
+Como **operador**, quiero configurar en un archivo los mensajes fijos del bot, para ajustar su tono
+sin cambiar el sistema.
+
+**Criterios de aceptación**
+1. Son configurables, al menos: no tengo información, sugerencia de derivación, persona no encontrada,
+   tiempo agotado y error general.
+2. El sistema trae **valores por defecto** razonables para todos los mensajes.
+3. **[A CLARIFICAR]** Como el bot responde en el idioma de la pregunta: ¿el archivo tiene los mensajes
+   por idioma, o se escriben en un idioma y el bot los traduce?
+
+### HU12 — Agregar fuentes externas de conocimiento · Prioridad P2
+
+Como **operador**, quiero agregar a una persona virtual fuentes de **Jira, Confluence o SharePoint**
+desde la interfaz web, para que su base de conocimiento incluya esa información.
+
+**Criterios de aceptación**
+1. Desde la interfaz puedo agregar, ver y quitar las fuentes de una persona, indicando el tipo
+   (Jira, Confluence, SharePoint) y qué parte tomar (por ejemplo, un proyecto, un espacio o una carpeta).
+2. **Cuando** se ejecuta la actualización, **entonces** el contenido de esas fuentes se incorpora
+   a la base de la persona con las mismas reglas que los archivos: nuevos, modificados y borrados (HU4).
+3. Las respuestas basadas en estas fuentes las citan con su **enlace** al sistema original.
+4. **Dado** que quito una fuente, **entonces** su contenido deja de usarse en las respuestas.
+5. Las fuentes **solo alimentan la base de conocimiento**: el bot no las consulta en vivo mientras responde.
+6. Las credenciales de acceso a las fuentes no se muestran en la interfaz una vez guardadas.
+7. **[A CLARIFICAR]** ¿Qué se toma de cada fuente: todo lo indicado, o solo lo que la persona escribió o en lo que participó?
+8. **[A CLARIFICAR]** ¿La actualización se puede disparar desde la interfaz, o sigue siendo solo un comando manual?
 
 ## Casos borde
 
 - Pregunta repetida (la misma petición enviada dos veces): se responde una sola vez.
 - Pedido con formato inválido o versión no soportada: error claro, sin respuesta.
-- Persona sin documentos (carpeta vacía): responde que no tiene información.
+- Persona sin documentos (carpeta vacía): responde que no tiene información y aplica la derivación (HU2).
 - Archivo sin texto extraíble (por ejemplo, un PDF escaneado): se omite y se informa en el resumen.
+- Perfil de persona con formato inválido: se informa en el resumen y se usan los valores por defecto.
 - El servicio del modelo de lenguaje no responde: la app recibe un error, no una respuesta vacía.
 - Pregunta mientras se está actualizando el conocimiento: **[A CLARIFICAR]** ¿responde con la versión anterior?
 
 ## Requisitos no funcionales
 
-- **Idioma:** **[A CLARIFICAR]** ¿responde en el idioma de la pregunta, o siempre en español?
-- **Tiempo de respuesta:** **[A CLARIFICAR]** objetivo para el primer fragmento y para la respuesta completa.
-- **Privacidad:** los documentos solo salen del entorno para el servicio del modelo de lenguaje,
-  y únicamente los fragmentos necesarios para cada respuesta.
+- **Idioma:** responde en el idioma de la pregunta.
+- **Tiempo de respuesta:** máximo configurable, por defecto 2 minutos (HU6).
+  **[A CLARIFICAR]** ¿Hay un objetivo para el primer fragmento?
+- **Configuración:** retención de conversaciones, tiempo máximo y mensajes se configuran sin cambiar el sistema.
+- **Privacidad:** los documentos solo salen del entorno hacia el servicio del modelo de lenguaje, y
+  únicamente los fragmentos necesarios para cada respuesta.
 - **Disponibilidad:** el bot responde siempre que el servicio esté levantado; no depende de la
   disponibilidad del empleado.
 
 ## Criterios de éxito
 
-1. Existe un **set de evaluación** de al menos 20 preguntas reales por persona de prueba,
-   con su respuesta esperada.
+1. Existe un **set de evaluación** de al menos 20 preguntas reales por persona de prueba, con su
+   respuesta esperada, que incluye preguntas que debe derivar a otra persona.
 2. **[A CLARIFICAR]** Porcentaje mínimo de respuestas correctas y con fuente.
 3. Ante preguntas fuera de la base, el bot **no inventa** en ningún caso del set de evaluación.
 
 ## Fuera de alcance (MVP)
 
-- Interfaz de usuario propia (app Java, front).
-- Usuarios, login y permisos por usuario.
+- Varios usuarios, SSO y permisos por usuario (el MVP tiene un único usuario con login).
 - Ejecutar tareas en nombre del empleado.
-- Fuentes distintas de archivos en carpeta (SharePoint, Confluence, Jira, mail).
-- Administración de personas y fuentes desde una interfaz.
-- Actualización automática del conocimiento.
+- Consultar fuentes externas en vivo durante una respuesta.
+- Correo como fuente directa (buzones); sí se aceptan correos guardados como archivos (HU4).
+- Actualización automática o programada del conocimiento.
+
+## Funcionalidades futuras
+
+- **Preguntas frecuentes por persona:** poder preguntarle al bot cuáles son las preguntas más
+  frecuentes que se le hacen a una persona virtual.
 
 ## Preguntas abiertas
 
-1. **Nombre visible de la persona:** el identificador sale de la carpeta ("juan-plataforma"), pero
-   ¿cómo se presenta el bot? ("Soy el asistente de Juan Pérez, de Plataforma"). ¿De dónde sale ese nombre?
-2. Qué sugiere el bot cuando no sabe (HU2).
-3. Retención de las conversaciones (HU5).
-4. Cómo se consulta el registro de lo respondido (HU8).
-5. Comportamiento durante una actualización del conocimiento.
-6. Idioma de las respuestas.
-7. Tiempos de respuesta objetivo.
-8. Umbral de éxito del set de evaluación.
+1. Formatos: ¿.eml y adjuntos de .msg? (HU4)
+2. Retención: ¿desde el inicio o desde el último mensaje? (HU5)
+3. Consulta del registro de lo respondido (HU8).
+4. Campos del perfil de la persona (HU9).
+5. Mensajes configurables e idiomas (HU11).
+6. Fuentes externas: qué se toma de cada una y desde dónde se dispara la actualización (HU12).
+7. Comportamiento durante una actualización del conocimiento.
+8. Objetivo de tiempo para el primer fragmento.
+9. Umbral de éxito del set de evaluación.

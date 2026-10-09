@@ -7,9 +7,12 @@ Vista de alto nivel de flock-ai. Las decisiones y su motivo están en
 
 **Idea central (D23):** el producto es el **agente**. Su API pública es un contrato de
 mensajes en Kafka; cualquier app puede consumirlo. La app Java y el front son un cliente
-más, que llega después del MVP.
+más: están en el MVP para demostrarlo y administrar fuentes, pero el bot no depende de ellos.
 
-## MVP
+**Orden de construcción (D27):** (1) núcleo: bot por Kafka + cliente CLI, (2) app Java + front,
+(3) fuentes externas vía MCP.
+
+## MVP — etapa 1: núcleo
 
 ```
   Apps cliente                     Cliente de prueba (CLI)
@@ -98,17 +101,26 @@ App cliente               Kafka                    Agent Worker               Po
 | Agent Worker → API de Claude | TLS estándar + API key (solo en el Agent Worker) |
 | Aislamiento entre personas | El agente solo busca en la base del `personaId` del pedido (D18) |
 
+## MVP — etapas 2 y 3: app Java, front y fuentes externas
+
+```
+ Frontend (React) ──cookie──> Core API (Java/Spring Boot) ──mTLS──> Kafka ──> Agent Worker
+                               │  login (1 usuario, tabla)
+                               │  administración de fuentes
+                               │  SSE hacia el front
+                               v
+                         Ingesta (Python) ──cliente MCP──> servidores MCP de
+                                                           Jira · Confluence · SharePoint
+```
+
+- **Core API (Java):** cliente del agente como cualquier otro (D23). Login con Spring Security y
+  usuario en tabla (D16); guarda las fuentes de cada persona; retransmite las respuestas al front por SSE.
+- **Frontend (React):** chat con cuenta regresiva y administración de fuentes (D10).
+- **Fuentes externas vía MCP (D30):** la ingesta lee Jira, Confluence y SharePoint a través de
+  servidores MCP, solo para construir la base. Cómo se dispara la ingesta desde la interfaz: abierto.
+
 ## Después del MVP
 
-```
- Frontend (React) ──cookie──> Core API (Java/Spring Boot) ──> Kafka ──> Agent Worker
-                                    ▲                                         │
-                                    └──────────── MCP (tools) ────────────────┘
-```
-
-- **Core API (Java):** primer cliente "real" del agente. Login con Spring Security y usuarios en
-  tabla (D16), luego SSO; validación usuario → persona (D18); retransmite las respuestas al front por SSE.
-- **Frontend (React):** chat y administrador de personas y fuentes (D10).
-- **Tools vía MCP** servidas por la Core API, para tareas puntuales con aprobación humana (D13, D14).
-- **Ingesta disparada por el administrador** a través de Kafka (`ingestion.jobs` / `ingestion.events`).
-- **Más fuentes:** SharePoint, Confluence, Jira y mail (D19, D20).
+- **Tools** servidas por la Core API vía MCP, para tareas puntuales con aprobación humana (D13, D14).
+- SSO y permisos por usuario sobre personas (D18).
+- Correo como fuente directa.
