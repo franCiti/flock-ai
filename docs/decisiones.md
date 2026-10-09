@@ -217,6 +217,11 @@ Jira, Confluence y SharePoint se leen con una cuenta de servicio por sistema, co
 `.env` del Ingestion Worker. Las credenciales no viajan por Kafka, no se guardan en la base y la
 interfaz no las maneja. El filtro por autor (D30) limita el contenido de cada persona.
 
+### D40 — Excepción a D17: servidores MCP sin mTLS · Aceptada
+La conexión Ingestion Worker → servidores MCP (software de terceros, en general sin soporte de mTLS)
+va sin certificado de cliente, solo dentro de la red interna de Docker y sin puertos expuestos.
+**Alternativa descartada:** un proxy con mTLS delante de cada servidor MCP (un contenedor más por servidor).
+
 ---
 
 ## Organización y entrega

@@ -1,6 +1,6 @@
 # Plan técnico: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** En redacción (secciones 1–6 de 9)
+**Estado:** En redacción (secciones 1–7 de 9)
 **Spec:** [spec.md](spec.md) (aprobada) · **Decisiones:** [docs/decisiones.md](../../docs/decisiones.md)
 
 > El plan describe **cómo** se construye lo que pide la spec. Cada pieza indica qué historias
@@ -15,7 +15,7 @@
 4. [Grafo del agente](#4-grafo-del-agente)
 5. [Ingesta y conectores](#5-ingesta-y-conectores)
 6. [Core API y front](#6-core-api-y-front)
-7. Seguridad e infraestructura — *pendiente*
+7. [Seguridad e infraestructura](#7-seguridad-e-infraestructura)
 8. Tests y evaluación — *pendiente*
 9. Riesgos y mapa de cobertura de la spec — *pendiente*
 
@@ -1217,7 +1217,160 @@ Los textos de la interfaz están en **español** (el código, en inglés).
 
 ## 7. Seguridad e infraestructura
 
-*Pendiente.*
+Cubre: HU7, HU15 · Aplica: D12, D17, D25, D37, D39
+
+### 7.1 CA propia y certificados (D17)
+
+Un script genera todo con OpenSSL **dentro de un contenedor** (no hace falta instalar nada en Windows):
+
+| Certificado | Tipo | Usado por |
+|---|---|---|
+| `ca` | Autoridad certificante (autofirmada) | Todos confían en ella |
+| `kafka` | Servidor | Broker de Kafka |
+| `postgres` | Servidor | Postgres |
+| `core-api` | Cliente | Core API → Kafka y Postgres |
+| `agent` | Cliente | Agent Worker → Kafka y Postgres |
+| `ingestion` | Cliente | Ingestion Worker → Kafka y Postgres |
+| `cli` | Cliente | Cliente de prueba `flock-ask` → Kafka |
+| `kafka-admin` | Cliente | Scripts que crean tópicos y ACLs |
+
+- **Identidad = CN del certificado** (`CN=core-api`, `CN=agent`…). Kafka y Postgres la usan para
+  saber quién se conecta y qué puede hacer.
+- Los certificados de servidor incluyen como nombres alternativos (SAN) el nombre del servicio en
+  Docker y `localhost`, para conectarse desde adentro y desde la PC.
+- Formato **PEM** en todos lados: lo aceptan Python, Postgres, Kafka y Spring Boot (SSL bundles).
+- Claves de curva elíptica (P-256). Vigencia: CA 10 años, servicios 2 años (entorno local).
+- Se generan en `infra/certs/out/` (fuera de git) y se montan **solo lectura** en cada contenedor,
+  cada uno con su propio certificado y clave.
+- **Sumar una app cliente:** `infra/certs/add-client.sh <clientId>` genera su certificado, crea su
+  tópico `agent.replies.<clientId>` y sus ACLs (7.2).
+
+### 7.2 Kafka (D09, D25)
+
+- Imagen oficial `apache/kafka`, **modo KRaft** (sin ZooKeeper), un solo nodo.
+- Los clientes se conectan solo por el listener **SSL con certificado de cliente obligatorio**
+  (`ssl.client.auth=required`).
+- Las **ACLs** están activas y, por defecto, todo está prohibido: solo se permite lo que figura abajo.
+- El usuario de Kafka sale del CN del certificado (`User:core-api`).
+
+**Tópicos:**
+
+| Tópico | Particiones | Retención | Nota |
+|---|---|---|---|
+| `agent.requests` | 6 | 1 día | Las particiones permiten varios Agent Workers |
+| `agent.replies.core-api`, `agent.replies.cli` | 3 | 1 día | Uno por app cliente |
+| `agent.audit` | 3 | 7 días | La Core API lo guarda en su copia |
+| `ingestion.jobs` | 1 | 7 días | Una actualización a la vez |
+| `ingestion.events` | 1 | 7 días | |
+
+**ACLs:**
+
+| Usuario | Escribe en | Lee de |
+|---|---|---|
+| `core-api` | `agent.requests`, `ingestion.jobs` | `agent.replies.core-api`, `ingestion.events`, `agent.audit` |
+| `agent` | `agent.replies.*` (prefijo), `agent.audit` | `agent.requests` |
+| `ingestion` | `ingestion.events` | `ingestion.jobs` |
+| `cli` | `agent.requests` | `agent.replies.cli` |
+| `kafka-admin` | Administración (crear tópicos y ACLs) | — |
+
+Cada usuario lee con su propio *consumer group* (`core-api`, `agent`, `ingestion`, `cli`).
+
+### 7.3 Postgres (D12)
+
+- Imagen `pgvector/pgvector`, con TLS activado y certificado de servidor.
+- **Autenticación por certificado** (`hostssl … cert`): el CN del certificado es el rol de Postgres.
+  No hay contraseñas de base de datos.
+- `infra/postgres/init.sql` (se ejecuta al crear la base) crea la extensión `vector`, los schemas,
+  los roles y los permisos de la sección 3.1.
+- El agente lee las tablas de `knowledge` gracias a permisos por defecto: todo lo que crea el rol
+  `ingestion` en `knowledge` es legible por `agent`.
+
+**Migraciones:**
+
+| Schema | Herramienta | Corre como |
+|---|---|---|
+| `core` | Flyway (al arrancar la Core API) | `core_api` |
+| `knowledge` | Archivos SQL con `yoyo-migrations` (al arrancar el Ingestion Worker) | `ingestion` |
+| `agent` | `yoyo-migrations` + `setup()` del checkpointer de LangGraph (al arrancar el Agent Worker) | `agent` |
+
+### 7.4 Secretos
+
+| Secreto | Dónde vive |
+|---|---|
+| `OPENROUTER_API_KEY` | `.env` → solo el contenedor `agent` |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `.env` → solo `core-api` (solo se usan para crear el usuario inicial) |
+| Cuentas de servicio de Jira, Confluence y SharePoint (D39) | `.env` → solo los contenedores de los servidores MCP |
+| Claves privadas de los certificados | `infra/certs/out/` → cada contenedor monta solo la suya |
+
+- Nada de esto entra en git ni en las imágenes de Docker.
+- Los secretos se cargan como tipos que **no se imprimen** en logs (`SecretStr` en Python; Spring
+  oculta las propiedades sensibles).
+- Cada contenedor recibe **solo** las variables que necesita, no el `.env` completo.
+
+### 7.5 Docker Compose (D37)
+
+```
+┌─────────── red interna de Docker ───────────────────────────────────────┐
+│                                                                         │
+│  web (nginx) ──> core-api ──┐                                           │
+│     :8080 (PC)              │                                           │
+│                             ├──> kafka ──> agent ────> OpenRouter (internet)
+│  cli (en la PC) ─ :9093 ───>┘      │    └─> ingestion ──> mcp-atlassian  │
+│                                    │           │      └─> mcp-sharepoint │
+│                             postgres <─────────┘                         │
+│                               :5433 (PC, opcional)                       │
+│                                                                         │
+│  certs-init · kafka-init    (contenedores de un solo uso al arrancar)   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Un solo comando:** `docker compose up`. Dos contenedores de un solo uso preparan todo la primera vez:
+  - `certs-init` genera la CA y los certificados si no existen.
+  - `kafka-init` crea los tópicos y las ACLs.
+
+  Los demás servicios esperan a que terminen (y a que Kafka y Postgres estén sanos).
+- **Puertos en la PC:** `8080` (web), `9093` (Kafka, para el cliente de prueba) y `5433` (Postgres,
+  opcional, para inspeccionar la base). El resto queda solo dentro de la red de Docker.
+- **Volúmenes:** datos de Postgres y de Kafka, caché del modelo de embeddings (compartida entre
+  `agent` e `ingestion`) y `data/knowledge` montada **solo** en `ingestion`, con escritura (para crear
+  perfiles, 5.7). El agente no accede a los archivos: solo a la base.
+- **Perfiles de Compose:** los servidores MCP están en el perfil `external-sources` y solo se
+  levantan en la etapa 3 o cuando se pide explícitamente.
+
+**Imágenes propias:**
+
+| Servicio | Imagen |
+|---|---|
+| `agent`, `ingestion` | La misma imagen Python (uv, en dos etapas: build y ejecución), con distinto comando |
+| `core-api` | Build con Maven → ejecución con JRE 21 |
+| `web` | Build con Node → nginx con los archivos estáticos |
+
+**Proxy corporativo en los builds:** Docker descarga imágenes sin problemas (verificado), pero
+**dentro** de los builds, `uv`, `npm` y `maven` también descargan dependencias y van a chocar con la
+inspección HTTPS (ver `docs/notas-entorno.md`). Solución: exportar el **certificado raíz público** de
+la red de Flock desde Windows a `infra/corp-ca/corp-root.crt` y que cada Dockerfile lo agregue a la
+lista de confianza durante el build. No es un secreto, pero es específico de este entorno: va fuera de git.
+
+### 7.6 Logs y trazabilidad
+
+- Logs en **JSON**, a la salida estándar de cada contenedor.
+- Todos los logs de un pedido llevan su `requestId`, y los de una actualización su `jobId`: se puede
+  seguir un pedido de punta a punta entre Core API, Kafka y Agent Worker.
+- Nunca se registran secretos ni el contenido completo de documentos; las preguntas y respuestas van
+  a la auditoría, no a los logs.
+- La Core API expone su estado con Spring Boot Actuator (`/actuator/health`, interno). Los workers
+  informan su estado con el *healthcheck* de Docker.
+
+### 7.7 Excepción a D17: servidores MCP (D40)
+
+Los servidores MCP son software de terceros y, en general, **no soportan mTLS**. La conexión
+Ingestion Worker → servidor MCP va **sin mTLS**, dentro de la red interna de Docker y sin puertos
+expuestos a la PC.
+
+### 7.8 Certificado raíz corporativo
+
+El certificado raíz público de la red de Flock se exporta desde el almacén de Windows a
+`infra/corp-ca/corp-root.crt` (fuera de git) en la tarea que arme los Dockerfiles.
 
 ## 8. Tests y evaluación
 

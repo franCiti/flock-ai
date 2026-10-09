@@ -28,3 +28,9 @@ dist/
 *.iml
 .DS_Store
 Thumbs.db
+
+# Corporate root CA (environment-specific)
+infra/corp-ca/
+
+# Generated certificates
+infra/certs/out/
