@@ -1,7 +1,9 @@
 # Especificación: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** Clarificada, pendiente de aprobación
-**Fecha:** 2026-10-09
+**Estado:** Aprobada
+**Fecha:** 2026-10-09 · **Aprobada por:** Francisco Neyrotte (2026-10-09)
+
+> Cambios posteriores a la aprobación se registran en la sección *Historial de cambios*.
 
 > Esta spec describe **qué** hace el sistema y **por qué**, no cómo se implementa.
 > Las decisiones técnicas están en [docs/decisiones.md](../../docs/decisiones.md).
@@ -324,3 +326,9 @@ sensible, para poder ofrecerlo a otras aplicaciones con confianza.
 
 - **Preguntas frecuentes por persona:** poder preguntarle al bot cuáles son las preguntas más
   frecuentes que se le hacen a una persona virtual.
+
+## Historial de cambios
+
+| Fecha | Cambio |
+|---|---|
+| 2026-10-09 | Versión aprobada |
