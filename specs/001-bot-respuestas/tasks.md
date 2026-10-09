@@ -61,7 +61,7 @@
   `infra/corp-ca/` queda opcional (los Dockerfiles de T27 usan lo que haya) y `docs/notas-entorno.md`
   explica cómo exportarlo si la inspección vuelve.
 
-**[ ] T06 — Postgres con mTLS**
+**[x] T06 — Postgres con mTLS**
 - Plan: 3.1, 7.3 · Depende de: T04
 - Servicio en Compose, TLS, autenticación por certificado, `init.sql` con extensión, schemas, roles y permisos.
 - **Hecho cuando:** cada rol se conecta con su certificado; sin certificado se rechaza; `agent` no puede escribir en `knowledge`.

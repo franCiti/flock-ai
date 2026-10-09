@@ -1,0 +1,7 @@
+# Entry point for Docker Compose: `docker compose up` from the repository root.
+# Services are defined in infra/docker-compose.yml; variables come from the root .env file.
+name: flock-ai
+
+include:
+  - path: infra/docker-compose.yml
+    env_file: .env

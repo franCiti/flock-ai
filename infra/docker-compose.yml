@@ -1,0 +1,28 @@
+# flock-ai local environment (plan section 7.5). Run from the repository root: docker compose up
+# Certificates must exist first: infra/certs/generate.sh (automated by certs-init in T07).
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17
+    # Copies the TLS material with the permissions PostgreSQL requires, then starts it with TLS.
+    entrypoint: ["/bin/sh", "/etc/flock/entrypoint.sh"]
+    environment:
+      POSTGRES_DB: flock_ai
+      # Superuser for administration inside the container only (pg_hba.conf: local peer).
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+    volumes:
+      - ./postgres:/etc/flock:ro
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./certs/out/postgres:/certs:ro
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      # Runs as the postgres OS user: pg_hba.conf only allows local "peer" logins for it.
+      test: ["CMD", "gosu", "postgres", "pg_isready", "--dbname=flock_ai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:
