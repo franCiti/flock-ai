@@ -3,18 +3,33 @@
 Aprendizajes del spike inicial (2026-10-09), cuyo código se descartó.
 Sirven para no volver a tropezar con lo mismo.
 
-## Red corporativa (proxy con inspección HTTPS)
+## Inspección HTTPS (intermitente)
 
-La red inspecciona el tráfico HTTPS con un certificado propio. Las herramientas
-que traen su propio almacén de certificados fallan con errores como
-`invalid peer certificate: UnknownIssuer`.
+**Lo que se vio (mañana del 2026-10-09):** fallaron a la vez descargas de uv
+(`invalid peer certificate: UnknownIssuer`), la fuente `msstore` de winget y el arranque de Docker.
+Es el comportamiento típico de una red o un antivirus que inspecciona HTTPS con un certificado propio.
 
-| Herramienta | Solución |
+**Lo que se comprobó después (tarea T05, mismo día):** no había inspección. 14 sitios (GitHub,
+PyPI, Maven, Alpine, Docker Hub, Hugging Face, OpenRouter, Microsoft Store, npm...) presentaban
+sus certificados públicos legítimos, el almacén de Windows no tenía raíces de antivirus, proxy o
+firewall, y uv descargaba sin `system-certs`.
+
+**Conclusión:** la inspección es **intermitente**; probablemente depende de la red (oficina, VPN)
+o del escaneo HTTPS del antivirus. Sin confirmar.
+
+**Defensas que quedan activas** (no molestan sin inspección y protegen con ella):
+
+| Herramienta | Defensa |
 |---|---|
-| **uv** | `system-certs = true` en `uv.toml` (o la variable `UV_SYSTEM_CERTS=1`) |
-| **Python** (requests, httpx, huggingface) | paquete `truststore` y `truststore.inject_into_ssl()` al iniciar |
-| **winget** | usar `--source winget`: la fuente `msstore` falla por certificado |
-| **Docker** | descargar imágenes funciona sin configuración extra (probado con `hello-world`) |
+| **uv** | `system-certs = true` en `agent-service/uv.toml` (o `UV_SYSTEM_CERTS=1`) |
+| **Python** (requests, httpx, huggingface) | `truststore.inject_into_ssl()` al iniciar (`common/bootstrap.py`) |
+| **winget** | usar `--source winget` si la fuente `msstore` falla por certificado |
+| **Builds de Docker** | si hay archivos `.crt` en `infra/corp-ca/`, los Dockerfiles los agregan a la lista de confianza (T27); si la carpeta está vacía, no hacen nada |
+
+**Si vuelven los errores de certificado:** identificar el certificado raíz que presenta la red
+(conectarse a un sitio como `github.com` y mirar la raíz de la cadena; si no es una CA pública
+conocida, es el corporativo), exportarlo desde el almacén de Windows como `.crt` (Base64) a
+`infra/corp-ca/` y reconstruir las imágenes. La carpeta está fuera de git.
 
 ## Herramientas instaladas
 

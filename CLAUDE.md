@@ -49,4 +49,5 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
 ## Entorno
 
 - Windows 11, con Git Bash y PowerShell. Python se gestiona con **uv**; Docker Desktop con WSL 2.
-- La red inspecciona HTTPS: ver `docs/notas-entorno.md` antes de pelear con errores de certificados.
+- La red puede inspeccionar HTTPS de forma intermitente: ante errores de certificados, ver
+  `docs/notas-entorno.md` antes de cambiar código.

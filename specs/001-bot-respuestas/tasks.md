@@ -53,10 +53,13 @@
 - `infra/certs/generate.sh` (OpenSSL en contenedor) y `add-client.sh`.
 - **Hecho cuando:** genera la CA y los certificados de 7.1, y `openssl verify` valida cada uno contra la CA.
 
-**[ ] T05 — Certificado raíz corporativo**
+**[x] T05 — Certificado raíz corporativo** — *no aplica por ahora*
 - Plan: 7.8
 - Exportar el certificado raíz de la red de Flock desde Windows a `infra/corp-ca/corp-root.crt`.
 - **Hecho cuando:** el archivo existe, está fuera de git y `docs/notas-entorno.md` explica cómo regenerarlo.
+- **Resultado (2026-10-09):** no se encontró inspección HTTPS, así que no hay certificado que exportar.
+  `infra/corp-ca/` queda opcional (los Dockerfiles de T27 usan lo que haya) y `docs/notas-entorno.md`
+  explica cómo exportarlo si la inspección vuelve.
 
 **[ ] T06 — Postgres con mTLS**
 - Plan: 3.1, 7.3 · Depende de: T04
@@ -173,7 +176,7 @@
 
 **[ ] T27 — Imagen Python y servicios en Compose**
 - Plan: 7.5 · Depende de: T05, T18, T25
-- Dockerfile (con el certificado corporativo), servicios `agent` e `ingestion`, volúmenes y healthchecks.
+- Dockerfile (agrega los `.crt` de `infra/corp-ca/` si existen), servicios `agent` e `ingestion`, volúmenes y healthchecks.
 - **Hecho cuando:** `docker compose up` levanta todo y `flock-ingest run` + `flock-ask` funcionan contra los contenedores (con LLM falso).
 
 **[ ] T28 — Evaluación (`flock-eval`)**

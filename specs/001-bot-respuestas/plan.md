@@ -1348,11 +1348,10 @@ Cada usuario lee con su propio *consumer group* (`core-api`, `agent`, `ingestion
 | `core-api` | Build con Maven → ejecución con JRE 21 |
 | `web` | Build con Node → nginx con los archivos estáticos |
 
-**Proxy corporativo en los builds:** Docker descarga imágenes sin problemas (verificado), pero
-**dentro** de los builds, `uv`, `npm` y `maven` también descargan dependencias y van a chocar con la
-inspección HTTPS (ver `docs/notas-entorno.md`). Solución: exportar el **certificado raíz público** de
-la red de Flock desde Windows a `infra/corp-ca/corp-root.crt` y que cada Dockerfile lo agregue a la
-lista de confianza durante el build. No es un secreto, pero es específico de este entorno: va fuera de git.
+**Inspección HTTPS en los builds:** dentro de los builds, `uv`, `npm` y `maven` descargan
+dependencias; si la red inspecciona HTTPS (se vio de forma intermitente, ver `docs/notas-entorno.md`),
+fallarían. Cada Dockerfile agrega a la lista de confianza los `.crt` que haya en `infra/corp-ca/`
+(fuera de git); si la carpeta está vacía, no hace nada (7.8).
 
 ### 7.6 Logs y trazabilidad
 
@@ -1370,10 +1369,11 @@ Los servidores MCP son software de terceros y, en general, **no soportan mTLS**.
 Ingestion Worker → servidor MCP va **sin mTLS**, dentro de la red interna de Docker y sin puertos
 expuestos a la PC.
 
-### 7.8 Certificado raíz corporativo
+### 7.8 Certificado raíz corporativo (opcional)
 
-El certificado raíz público de la red de Flock se exporta desde el almacén de Windows a
-`infra/corp-ca/corp-root.crt` (fuera de git) en la tarea que arme los Dockerfiles.
+En la T05 no se encontró inspección HTTPS: no hay certificado para exportar. `infra/corp-ca/` queda
+como punto de extensión: si la inspección vuelve, se exporta ahí el certificado raíz que presente la
+red y los Dockerfiles lo usan sin cambios de código (procedimiento en `docs/notas-entorno.md`).
 
 ## 8. Tests y evaluación
 
