@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "auditId": "e7c5a3b4-1f6d-4c0e-9a5b-6d7e8f9a0b1c",
+  "requestId": "1e2f3a4b-5c6d-4e7f-8a9b-0c1d2e3f4a5b",
+  "clientId": "cli",
+  "conversationId": "cli-1",
+  "personaId": "juan-plataforma",
+  "question": "¿Qué tag tiene el último deploy?",
+  "answer": null,
+  "outcome": "error",
+  "errorCode": "RATE_LIMITED",
+  "citations": [],
+  "referralPersonaId": null,
+  "flags": ["rate_limited"],
+  "llmModel": null,
+  "promptVersion": null,
+  "firstTokenMs": null,
+  "totalMs": 4,
+  "createdAt": "2026-10-09T15:40:00Z"
+}

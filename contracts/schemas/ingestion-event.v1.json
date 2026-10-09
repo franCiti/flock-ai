@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:flock-ai:schema:ingestion-event:v1",
+  "title": "IngestionEvent",
+  "description": "Progress and result of an IngestionJob (internal). Published to ingestion.events.",
+  "oneOf": [
+    { "$ref": "#/definitions/StartedEvent" },
+    { "$ref": "#/definitions/RejectedEvent" },
+    { "$ref": "#/definitions/PersonaCompletedEvent" },
+    { "$ref": "#/definitions/PersonaRemovedEvent" },
+    { "$ref": "#/definitions/CompletedEvent" },
+    { "$ref": "#/definitions/FailedEvent" }
+  ],
+  "definitions": {
+    "EventEnvelope": {
+      "type": "object",
+      "required": ["version", "jobId", "type", "sentAt"],
+      "properties": {
+        "version": { "const": 1 },
+        "jobId": { "type": "string", "format": "uuid" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "started",
+            "rejected",
+            "persona_completed",
+            "persona_removed",
+            "completed",
+            "failed"
+          ]
+        },
+        "sentAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "StartedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        { "type": "object", "properties": { "type": { "const": "started" } } }
+      ]
+    },
+    "RejectedEvent": {
+      "description": "Another update was already running.",
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "type": "object",
+          "required": ["reason"],
+          "properties": {
+            "type": { "const": "rejected" },
+            "reason": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "PersonaCompletedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "type": "object",
+          "required": ["summary"],
+          "properties": {
+            "type": { "const": "persona_completed" },
+            "summary": { "$ref": "#/definitions/PersonaSummary" }
+          }
+        }
+      ]
+    },
+    "PersonaRemovedEvent": {
+      "description": "The folder of the persona disappeared; the persona and its knowledge were deleted.",
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "type": "object",
+          "required": ["personaId"],
+          "properties": {
+            "type": { "const": "persona_removed" },
+            "personaId": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "CompletedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "type": "object",
+          "required": ["totals"],
+          "properties": {
+            "type": { "const": "completed" },
+            "totals": { "$ref": "#/definitions/Totals" }
+          }
+        }
+      ]
+    },
+    "FailedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "type": "object",
+          "required": ["reason"],
+          "properties": {
+            "type": { "const": "failed" },
+            "reason": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "PersonaSummary": {
+      "type": "object",
+      "required": [
+        "personaId",
+        "displayName",
+        "added",
+        "modified",
+        "deleted",
+        "unchanged",
+        "secretsMasked",
+        "skipped",
+        "sourceErrors"
+      ],
+      "properties": {
+        "personaId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "added": { "type": "integer", "minimum": 0 },
+        "modified": { "type": "integer", "minimum": 0 },
+        "deleted": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 },
+        "secretsMasked": { "type": "integer", "minimum": 0 },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "reason"],
+            "properties": {
+              "path": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "sourceErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sourceId", "reason"],
+            "properties": {
+              "sourceId": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "Totals": {
+      "type": "object",
+      "required": [
+        "personas",
+        "added",
+        "modified",
+        "deleted",
+        "unchanged",
+        "skipped",
+        "secretsMasked",
+        "sourceErrors"
+      ],
+      "properties": {
+        "personas": { "type": "integer", "minimum": 0 },
+        "added": { "type": "integer", "minimum": 0 },
+        "modified": { "type": "integer", "minimum": 0 },
+        "deleted": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "secretsMasked": { "type": "integer", "minimum": 0 },
+        "sourceErrors": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

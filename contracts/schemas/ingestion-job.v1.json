@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:flock-ai:schema:ingestion-job:v1",
+  "title": "IngestionJob",
+  "description": "Request to update the knowledge base (internal). Published to ingestion.jobs. Persona folders are always scanned; 'sources' lists every configured external source.",
+  "type": "object",
+  "required": ["version", "jobId", "trigger", "requestedAt", "sources"],
+  "properties": {
+    "version": { "const": 1 },
+    "jobId": { "type": "string", "format": "uuid" },
+    "trigger": { "type": "string", "enum": ["scheduled", "manual"] },
+    "requestedAt": { "type": "string", "format": "date-time" },
+    "sources": {
+      "description": "All external sources of all personas. Documents of sources not listed are removed.",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/definitions/JiraSource" },
+          { "$ref": "#/definitions/ConfluenceSource" },
+          { "$ref": "#/definitions/SharePointSource" }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "SourceBase": {
+      "type": "object",
+      "required": ["sourceId", "personaId", "type", "scope"],
+      "properties": {
+        "sourceId": { "type": "string", "minLength": 1 },
+        "personaId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+        "type": { "type": "string", "enum": ["jira", "confluence", "sharepoint"] }
+      }
+    },
+    "JiraSource": {
+      "allOf": [
+        { "$ref": "#/definitions/SourceBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "jira" },
+            "scope": {
+              "type": "object",
+              "required": ["projectKey"],
+              "properties": { "projectKey": { "type": "string", "minLength": 1 } }
+            }
+          }
+        }
+      ]
+    },
+    "ConfluenceSource": {
+      "allOf": [
+        { "$ref": "#/definitions/SourceBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "confluence" },
+            "scope": {
+              "type": "object",
+              "required": ["spaceKey"],
+              "properties": { "spaceKey": { "type": "string", "minLength": 1 } }
+            }
+          }
+        }
+      ]
+    },
+    "SharePointSource": {
+      "allOf": [
+        { "$ref": "#/definitions/SourceBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "sharepoint" },
+            "scope": {
+              "type": "object",
+              "required": ["siteUrl", "folderPath"],
+              "properties": {
+                "siteUrl": { "type": "string", "format": "uri" },
+                "folderPath": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

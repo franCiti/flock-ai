@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "jobId": "a3e1c9d0-7b2f-4e6a-9c1d-2f3e4a5b6c7d",
+  "trigger": "scheduled",
+  "requestedAt": "2026-10-09T15:30:00Z",
+  "sources": [
+    {
+      "sourceId": "src-1",
+      "personaId": "juan-plataforma",
+      "type": "jira",
+      "scope": { "projectKey": "PLAT" }
+    },
+    {
+      "sourceId": "src-2",
+      "personaId": "juan-plataforma",
+      "type": "confluence",
+      "scope": { "spaceKey": "PLATDOCS" }
+    },
+    {
+      "sourceId": "src-3",
+      "personaId": "ana-datos",
+      "type": "sharepoint",
+      "scope": { "siteUrl": "https://example.sharepoint.com/sites/datos", "folderPath": "/Procedimientos" }
+    }
+  ]
+}

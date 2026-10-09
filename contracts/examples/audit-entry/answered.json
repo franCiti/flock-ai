@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "auditId": "d6b4f2a3-0e5c-4b9d-8f4a-5c6d7e8f9a0b",
+  "requestId": "6f1c2a4e-1b7d-4c0e-9a51-3c2f8d9e0a11",
+  "clientId": "core-api",
+  "conversationId": "web-session-42",
+  "personaId": "juan-plataforma",
+  "question": "¿Cómo hago rollback de un deploy?",
+  "answer": "Soy el asistente virtual de Juan Pérez. Para hacer rollback, ejecutá el job `rollback-prod` con el tag anterior [1].",
+  "outcome": "answered",
+  "errorCode": null,
+  "citations": [
+    {
+      "documentId": "file:juan-plataforma:procedures/deploy.md",
+      "title": "Deploy a producción",
+      "section": "Rollback",
+      "url": null,
+      "path": "procedures/deploy.md",
+      "sourceType": "file"
+    }
+  ],
+  "referralPersonaId": null,
+  "flags": [],
+  "llmModel": "provider/model-a",
+  "promptVersion": "answer-v1",
+  "firstTokenMs": 2310,
+  "totalMs": 6980,
+  "createdAt": "2026-10-09T15:20:07Z"
+}

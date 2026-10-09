@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "type": "final",
+  "requestId": "6f1c2a4e-1b7d-4c0e-9a51-3c2f8d9e0a11",
+  "conversationId": "web-session-42",
+  "personaId": "juan-plataforma",
+  "seq": 42,
+  "sentAt": "2026-10-09T15:20:07Z",
+  "clientContext": { "uiMessageId": "m-17" },
+  "answer": "Soy el asistente virtual de Juan Pérez. Para hacer rollback, ejecutá el job `rollback-prod` con el tag anterior [1].",
+  "outcome": "answered",
+  "persona": { "id": "juan-plataforma", "displayName": "Juan Pérez" },
+  "citations": [
+    {
+      "documentId": "file:juan-plataforma:procedures/deploy.md",
+      "title": "Deploy a producción",
+      "section": "Rollback",
+      "url": null,
+      "path": "procedures/deploy.md",
+      "sourceType": "file"
+    }
+  ],
+  "referral": null,
+  "timing": { "firstTokenMs": 2310, "totalMs": 6980 }
+}

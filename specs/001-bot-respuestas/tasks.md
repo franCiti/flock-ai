@@ -40,7 +40,7 @@
   Entry points registrados (todavía sin lógica).
 - **Hecho cuando:** `uv run pytest` corre un test de humo y los linters de Python pasan.
 
-**[ ] T03 — Contrato AsyncAPI**
+**[x] T03 — Contrato AsyncAPI**
 - Spec: HU6, HU7 · Plan: 1.2, 2, 3.6, 5.9 · Depende de: T01
 - `contracts/asyncapi.yaml` (AsyncAPI 3.0) y los cinco JSON Schema, con ejemplos. Generación de los
   modelos Pydantic en `flock_agent/contracts/`. Comando para generar la documentación HTML.

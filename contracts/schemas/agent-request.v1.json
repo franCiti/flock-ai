@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:flock-ai:schema:agent-request:v1",
+  "title": "AgentRequest",
+  "description": "A question sent by a client app to a virtual persona. Published to agent.requests.",
+  "type": "object",
+  "required": [
+    "version",
+    "requestId",
+    "conversationId",
+    "personaId",
+    "question",
+    "replyTo",
+    "sentAt"
+  ],
+  "properties": {
+    "version": {
+      "description": "Contract version.",
+      "const": 1
+    },
+    "requestId": {
+      "description": "Unique id of the request. A repeated requestId is not processed twice.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "conversationId": {
+      "description": "Chosen by the client app. Groups the questions of one conversation.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "personaId": {
+      "description": "Virtual persona being asked (the name of its knowledge folder).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "question": {
+      "description": "The question. Its maximum length is enforced by the agent configuration.",
+      "type": "string",
+      "minLength": 1
+    },
+    "replyTo": {
+      "description": "Topic where the client app reads the replies. Its suffix identifies the client app.",
+      "type": "string",
+      "pattern": "^agent\\.replies\\.[a-z0-9-]{1,64}$"
+    },
+    "sentAt": {
+      "description": "When the client app sent the request (UTC).",
+      "type": "string",
+      "format": "date-time"
+    },
+    "clientContext": {
+      "description": "Free data of the client app, returned unchanged in every reply.",
+      "type": "object",
+      "maxProperties": 10,
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

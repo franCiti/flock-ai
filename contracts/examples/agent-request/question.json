@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "requestId": "6f1c2a4e-1b7d-4c0e-9a51-3c2f8d9e0a11",
+  "conversationId": "web-session-42",
+  "personaId": "juan-plataforma",
+  "question": "¿Cómo hago rollback de un deploy?",
+  "replyTo": "agent.replies.core-api",
+  "sentAt": "2026-10-09T15:20:00Z",
+  "clientContext": { "uiMessageId": "m-17" }
+}

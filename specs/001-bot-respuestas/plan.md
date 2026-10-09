@@ -641,6 +641,7 @@ Va en la base, y no en memoria, para que el límite sea correcto aunque haya var
 | `referral_persona_id` | text, nullable | Derivación sugerida (HU2) |
 | `flags` | text[] | `injection_suspected`, `rate_limited`, `question_too_long`, `invalid_request` |
 | `llm_model` | text | Con qué modelo se respondió (para comparar, D08) |
+| `prompt_version` | text | Versión de los prompts usados (4.6) |
 | `first_token_ms`, `total_ms` | int | Objetivo de 10 s (RNF) |
 | `created_at` | timestamptz | |
 

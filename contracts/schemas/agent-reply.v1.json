@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:flock-ai:schema:agent-reply:v1",
+  "title": "AgentReply",
+  "description": "A message of the reply to an AgentRequest. Published to agent.replies.<clientId>. Every request ends with exactly one 'final' or 'error' message.",
+  "oneOf": [
+    { "$ref": "#/definitions/AcceptedReply" },
+    { "$ref": "#/definitions/TokenReply" },
+    { "$ref": "#/definitions/FinalReply" },
+    { "$ref": "#/definitions/ErrorReply" }
+  ],
+  "definitions": {
+    "ReplyEnvelope": {
+      "description": "Fields shared by every reply message.",
+      "type": "object",
+      "required": ["version", "type", "requestId", "conversationId", "personaId", "seq", "sentAt"],
+      "properties": {
+        "version": { "const": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["accepted", "token", "final", "error"]
+        },
+        "requestId": {
+          "description": "The request id; null only when the request could not be read.",
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "conversationId": { "type": ["string", "null"] },
+        "personaId": { "type": ["string", "null"] },
+        "seq": {
+          "description": "Order of the message within the request, starting at 0.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "sentAt": { "type": "string", "format": "date-time" },
+        "clientContext": {
+          "description": "The clientContext of the request, unchanged.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "AcceptedReply": {
+      "description": "The agent took the request.",
+      "allOf": [
+        { "$ref": "#/definitions/ReplyEnvelope" },
+        {
+          "type": "object",
+          "required": ["type", "deadlineAt"],
+          "properties": {
+            "type": { "const": "accepted" },
+            "deadlineAt": {
+              "description": "Latest time the final reply can arrive. Clients can show a countdown.",
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "TokenReply": {
+      "description": "A fragment of the answer being generated.",
+      "allOf": [
+        { "$ref": "#/definitions/ReplyEnvelope" },
+        {
+          "type": "object",
+          "required": ["type", "text"],
+          "properties": {
+            "type": { "const": "token" },
+            "text": {
+              "description": "Text to append to the answer so far.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "FinalReply": {
+      "description": "The complete answer. Its text replaces whatever was built from the tokens.",
+      "allOf": [
+        { "$ref": "#/definitions/ReplyEnvelope" },
+        {
+          "type": "object",
+          "required": ["type", "answer", "outcome", "persona", "citations", "referral", "timing"],
+          "properties": {
+            "type": { "const": "final" },
+            "answer": {
+              "description": "Complete answer in Markdown, in the language of the question.",
+              "type": "string"
+            },
+            "outcome": { "$ref": "#/definitions/Outcome" },
+            "persona": { "$ref": "#/definitions/PersonaRef" },
+            "citations": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/Citation" }
+            },
+            "referral": {
+              "description": "Another persona that can probably help, or null.",
+              "oneOf": [{ "$ref": "#/definitions/PersonaRef" }, { "type": "null" }]
+            },
+            "timing": { "$ref": "#/definitions/Timing" }
+          }
+        }
+      ]
+    },
+    "ErrorReply": {
+      "description": "The request ended without an answer.",
+      "allOf": [
+        { "$ref": "#/definitions/ReplyEnvelope" },
+        {
+          "type": "object",
+          "required": ["type", "code", "message", "retryable"],
+          "properties": {
+            "type": { "const": "error" },
+            "code": { "$ref": "#/definitions/ErrorCode" },
+            "message": {
+              "description": "Text to show, in the language of the question when known.",
+              "type": "string"
+            },
+            "retryable": {
+              "description": "Whether retrying the same request later makes sense.",
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "Outcome": {
+      "type": "string",
+      "enum": [
+        "answered",
+        "partially_answered",
+        "no_information",
+        "out_of_scope",
+        "small_talk",
+        "about_assistant"
+      ]
+    },
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "INVALID_REQUEST",
+        "UNSUPPORTED_VERSION",
+        "PERSONA_NOT_FOUND",
+        "QUESTION_TOO_LONG",
+        "RATE_LIMITED",
+        "TIMEOUT",
+        "LLM_UNAVAILABLE",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "PersonaRef": {
+      "type": "object",
+      "required": ["id", "displayName"],
+      "properties": {
+        "id": { "type": "string" },
+        "displayName": { "type": "string" }
+      }
+    },
+    "Citation": {
+      "type": "object",
+      "required": ["documentId", "title", "sourceType"],
+      "properties": {
+        "documentId": { "type": "string" },
+        "title": { "type": "string" },
+        "url": {
+          "description": "Link to the original; null for files of the persona folder.",
+          "type": ["string", "null"],
+          "format": "uri"
+        },
+        "path": {
+          "description": "Relative path inside the persona folder (folder files only).",
+          "type": ["string", "null"]
+        },
+        "section": { "type": ["string", "null"] },
+        "sourceType": { "$ref": "#/definitions/SourceType" }
+      }
+    },
+    "SourceType": {
+      "type": "string",
+      "enum": ["file", "email", "email_attachment", "jira", "confluence", "sharepoint"]
+    },
+    "Timing": {
+      "type": "object",
+      "required": ["firstTokenMs", "totalMs"],
+      "properties": {
+        "firstTokenMs": { "type": ["integer", "null"], "minimum": 0 },
+        "totalMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

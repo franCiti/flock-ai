@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "type": "error",
+  "requestId": null,
+  "conversationId": null,
+  "personaId": null,
+  "seq": 0,
+  "sentAt": "2026-10-09T15:30:00Z",
+  "code": "INVALID_REQUEST",
+  "message": "El pedido no tiene un formato válido.",
+  "retryable": false
+}

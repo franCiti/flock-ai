@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "type": "error",
+  "requestId": "6f1c2a4e-1b7d-4c0e-9a51-3c2f8d9e0a11",
+  "conversationId": "web-session-42",
+  "personaId": "juan-plataforma",
+  "seq": 17,
+  "sentAt": "2026-10-09T15:22:00.120Z",
+  "code": "TIMEOUT",
+  "message": "La respuesta tardó demasiado. Probá de nuevo en unos minutos.",
+  "retryable": true
+}

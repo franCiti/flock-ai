@@ -1,0 +1,208 @@
+asyncapi: 3.0.0
+
+info:
+  title: flock-ai agent contract
+  version: 1.0.0
+  description: |
+    Messaging contract of the flock-ai agent service: a bot that answers questions with the
+    knowledge of an employee (a "virtual persona").
+
+    **Public API** (any authorized client app can use it):
+    - publish an `AgentRequest` to `agent.requests`;
+    - read the `AgentReply` messages from your own `agent.replies.<clientId>` topic, set in `replyTo`.
+
+    Every request ends with exactly one `final` or `error` reply. Replies of a request carry an
+    increasing `seq`; the text of `final.answer` replaces whatever was built from the `token` messages.
+
+    **Internal channels** (`ingestion.*`, `agent.audit`) are used only by flock-ai services and are
+    documented for completeness.
+
+    Conventions: JSON in UTF-8, camelCase fields, ISO 8601 UTC dates, mandatory `version` field.
+    Unknown fields must be ignored, so optional fields can be added without breaking clients.
+    Incompatible changes require a new version.
+
+defaultContentType: application/json
+
+servers:
+  local:
+    host: localhost:9093
+    protocol: kafka-secure
+    description: Local Docker Compose broker. Clients authenticate with a certificate signed by the flock-ai CA.
+    security:
+      - $ref: '#/components/securitySchemes/clientCertificate'
+
+channels:
+  agentRequests:
+    address: agent.requests
+    title: Agent requests
+    description: Questions from every client app. Messages are keyed by conversationId.
+    messages:
+      agentRequest:
+        $ref: '#/components/messages/AgentRequest'
+
+  agentReplies:
+    address: agent.replies.{clientId}
+    title: Agent replies
+    description: Replies for one client app. Messages are keyed by conversationId.
+    parameters:
+      clientId:
+        description: Id of the client app (the CN of its certificate), e.g. `core-api` or `cli`.
+    messages:
+      agentReply:
+        $ref: '#/components/messages/AgentReply'
+
+  agentAudit:
+    address: agent.audit
+    title: Audit log (internal)
+    description: One entry per processed request. Read only by the Core API.
+    messages:
+      auditEntry:
+        $ref: '#/components/messages/AuditEntry'
+
+  ingestionJobs:
+    address: ingestion.jobs
+    title: Ingestion jobs (internal)
+    description: Scheduled and manual knowledge updates requested by the Core API.
+    messages:
+      ingestionJob:
+        $ref: '#/components/messages/IngestionJob'
+
+  ingestionEvents:
+    address: ingestion.events
+    title: Ingestion events (internal)
+    description: Progress and results of the ingestion jobs.
+    messages:
+      ingestionEvent:
+        $ref: '#/components/messages/IngestionEvent'
+
+operations:
+  receiveAgentRequest:
+    action: receive
+    channel:
+      $ref: '#/channels/agentRequests'
+    summary: The agent consumes the questions of every client app.
+
+  sendAgentReply:
+    action: send
+    channel:
+      $ref: '#/channels/agentReplies'
+    summary: The agent publishes accepted, token, final and error messages to the replyTo topic.
+
+  sendAuditEntry:
+    action: send
+    channel:
+      $ref: '#/channels/agentAudit'
+    summary: The agent records every processed request.
+
+  receiveIngestionJob:
+    action: receive
+    channel:
+      $ref: '#/channels/ingestionJobs'
+    summary: The ingestion worker processes knowledge updates, one at a time.
+
+  sendIngestionEvent:
+    action: send
+    channel:
+      $ref: '#/channels/ingestionEvents'
+    summary: The ingestion worker reports progress and results.
+
+components:
+  securitySchemes:
+    clientCertificate:
+      type: X509
+      description: Mutual TLS. Kafka ACLs grant each certificate (by CN) only its own topics.
+
+  messages:
+    AgentRequest:
+      name: AgentRequest
+      title: Agent request
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/agent-request.v1.json'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: conversationId
+
+    AgentReply:
+      name: AgentReply
+      title: Agent reply
+      summary: accepted, token, final or error (field "type").
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/agent-reply.v1.json'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: conversationId
+
+    AuditEntry:
+      name: AuditEntry
+      title: Audit entry
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/audit-entry.v1.json'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: requestId
+
+    IngestionJob:
+      name: IngestionJob
+      title: Ingestion job
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/ingestion-job.v1.json'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: jobId
+
+    IngestionEvent:
+      name: IngestionEvent
+      title: Ingestion event
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/ingestion-event.v1.json'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: jobId
+
+  schemas:
+    MessageHeaders:
+      type: object
+      required: [content-type, schema]
+      properties:
+        content-type:
+          type: string
+          const: application/json
+        schema:
+          type: string
+          description: Name and version of the payload schema, e.g. `agent-request.v1`.
+          pattern: '^[a-z-]+\.v[0-9]+$'

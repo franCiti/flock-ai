@@ -34,3 +34,9 @@ infra/corp-ca/
 
 # Generated certificates
 infra/certs/out/
+
+# Temporary output of the generated-contracts check
+agent-service/_codegen_check_*/
+
+# Generated contract documentation
+contracts/docs/

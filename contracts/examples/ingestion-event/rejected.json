@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "jobId": "b4f2d0e1-8c3a-4f7b-8d2e-3a4b5c6d7e8f",
+  "type": "rejected",
+  "sentAt": "2026-10-09T15:30:02Z",
+  "reason": "another update is already running"
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "jobId": "a3e1c9d0-7b2f-4e6a-9c1d-2f3e4a5b6c7d",
+  "type": "completed",
+  "sentAt": "2026-10-09T15:32:10Z",
+  "totals": {
+    "personas": 2,
+    "added": 5,
+    "modified": 1,
+    "deleted": 0,
+    "unchanged": 20,
+    "skipped": 1,
+    "secretsMasked": 2,
+    "sourceErrors": 0
+  }
+}

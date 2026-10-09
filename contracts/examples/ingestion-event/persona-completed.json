@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "jobId": "a3e1c9d0-7b2f-4e6a-9c1d-2f3e4a5b6c7d",
+  "type": "persona_completed",
+  "sentAt": "2026-10-09T15:31:40Z",
+  "summary": {
+    "personaId": "juan-plataforma",
+    "displayName": "Juan Pérez",
+    "added": 3,
+    "modified": 1,
+    "deleted": 0,
+    "unchanged": 12,
+    "secretsMasked": 2,
+    "skipped": [{ "path": "scans/contrato.pdf", "reason": "no extractable text" }],
+    "sourceErrors": []
+  }
+}

@@ -18,9 +18,14 @@ flock-eval = "flock_agent.tools.evaluate:main"
 
 [dependency-groups]
 dev = [
+    "datamodel-code-generator[ruff]>=0.83",
+    "jsonschema[format-nongpl]>=4.23",
     "mypy>=1.13",
     "pytest>=8.3",
+    "pyyaml>=6.0",
     "ruff>=0.8",
+    "types-jsonschema>=4.23",
+    "types-pyyaml>=6.0",
 ]
 
 [build-system]
@@ -36,6 +41,10 @@ packages = ["src/flock_agent"]
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+
+[tool.ruff.format]
+# Same line endings on every OS (the repository stores LF, see .gitattributes).
+line-ending = "lf"
 
 [tool.ruff.lint]
 select = [
@@ -58,6 +67,8 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 # Asserts are the point of tests.
 "tests/**" = ["S101"]
+# Generated from contracts/schemas: long lines are schema descriptions the formatter cannot wrap.
+"src/flock_agent/contracts/generated/**" = ["E501"]
 
 # --- mypy ---------------------------------------------------------------------
 
