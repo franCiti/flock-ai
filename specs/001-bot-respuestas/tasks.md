@@ -116,7 +116,7 @@
 - Spec: HU9 · Plan: 5.7 · Depende de: T02
 - **Hecho cuando:** tests de creación por defecto, cambios detectados y YAML inválido.
 
-**[ ] T17 — Datos de ejemplo**
+**[x] T17 — Datos de ejemplo**
 - Plan: 8.6 · Depende de: —
 - `examples/knowledge/` con dos personas ficticias, todos los formatos, español e inglés, documentos
   envenenados y documentos con secretos.

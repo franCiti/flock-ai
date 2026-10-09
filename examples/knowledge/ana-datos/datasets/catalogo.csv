@@ -1,0 +1,5 @@
+dataset,esquema,actualizacion,responsable
+fact_ventas,ventas,diaria 03:00,Ana Gómez
+dim_clientes,ventas,diaria 03:00,Ana Gómez
+stock_semanal,stock,lunes 05:00,Pablo Torres
+devoluciones,ventas,diaria 04:00,Ana Gómez

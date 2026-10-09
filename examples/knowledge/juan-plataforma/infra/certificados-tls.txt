@@ -1,0 +1,9 @@
+Certificados TLS de los dominios públicos (documento ficticio)
+
+Los certificados de *.example.com los emite Let's Encrypt y se renuevan solos con cert-manager
+30 días antes de vencer.
+
+El certificado del dominio legado legacy.example.net es de una CA paga: vence el 15 de marzo de cada
+año y se renueva a mano. La renovación la pide Plataforma a Compras con un mes de anticipación.
+
+Si un certificado vence, el síntoma típico es el error NET::ERR_CERT_DATE_INVALID en el navegador.
