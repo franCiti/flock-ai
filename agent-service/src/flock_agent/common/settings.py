@@ -14,6 +14,7 @@ _UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 # Local development reads the repository's .env; in containers the file does not exist
 # and the variables come from the environment.
 _REPO_ENV_FILE = Path(__file__).resolve().parents[4] / ".env"
+_SERVICE_DIR = Path(__file__).resolve().parents[3]
 
 
 def parse_duration(value: object) -> object:
@@ -77,6 +78,9 @@ class Settings(BaseSettings):
     retrieval_top_k: PositiveInt = 8
     referral_min_score: Annotated[float, Field(ge=0)] | None = None
     history_turns: PositiveInt = 6
+
+    # Configurable bot messages (spec HU11)
+    messages_file: Path = _SERVICE_DIR / "config" / "messages.yaml"
 
     # Ingestion (spec HU4)
     knowledge_root: Path = Path("data/knowledge")

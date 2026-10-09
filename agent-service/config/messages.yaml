@@ -1,0 +1,44 @@
+# Mensajes fijos del bot (HU11). Se escriben en español; el bot los adapta al idioma de la
+# pregunta conservando su contenido. Si se borra un mensaje, se usa su valor por defecto.
+#
+# Datos del perfil que se pueden usar:
+#   {display_name}   nombre visible de la persona (en todos los mensajes de respuesta)
+#   {referral_name}  nombre de la persona sugerida (solo en "referral")
+# Los mensajes de error y "secret_placeholder" no llevan datos. Para escribir una llave literal: {{ o }}.
+
+# Presentación: "¿quién sos?", "¿sos Juan?", "¿qué sabés hacer?" (HU13)
+about_assistant: >-
+  Soy el asistente virtual de {display_name}: respondo consultas con la información
+  de su base de conocimiento, pero no soy {display_name}. ¿En qué te puedo ayudar?
+
+# Saludos, agradecimientos y despedidas (HU14)
+small_talk: >-
+  ¡Con gusto! Soy el asistente virtual de {display_name}. Si tenés una consulta,
+  escribila y la busco en su base de conocimiento.
+
+# Pedidos ajenos a la base y al ámbito laboral (HU14)
+out_of_scope: >-
+  Solo respondo con la información de la base de conocimiento de {display_name},
+  así que no puedo ayudarte con ese pedido.
+
+# La base no tiene la respuesta (HU2)
+no_information: >-
+  No tengo información sobre eso en la base de conocimiento de {display_name}.
+
+# Sugerencia de derivación a otra persona (HU2)
+referral: >-
+  Quizás {referral_name} pueda ayudarte con esa consulta.
+
+# Reemplaza cada secreto encontrado al indexar (HU15.4)
+secret_placeholder: "[dato oculto]"
+
+# Mensajes de error, por código del contrato
+errors:
+  INVALID_REQUEST: El pedido no tiene un formato válido.
+  UNSUPPORTED_VERSION: La versión del pedido no está soportada.
+  PERSONA_NOT_FOUND: No se encontró la persona consultada.
+  QUESTION_TOO_LONG: La pregunta es demasiado larga. Probá con una más corta.
+  RATE_LIMITED: Se recibieron demasiadas consultas en poco tiempo. Probá de nuevo en un minuto.
+  TIMEOUT: La respuesta tardó demasiado. Probá de nuevo en unos minutos.
+  LLM_UNAVAILABLE: El servicio no está disponible en este momento. Probá de nuevo en unos minutos.
+  INTERNAL_ERROR: Ocurrió un error al procesar la consulta. Probá de nuevo en unos minutos.

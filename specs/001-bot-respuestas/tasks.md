@@ -140,11 +140,14 @@
   conectan en T24/T25. `processed_request` se registra **después** de publicar la respuesta (entrega
   "al menos una vez", plan 4.1).
 
-**[ ] T20 — LLM, mensajes y prompts**
+**[x] T20 — LLM, mensajes y prompts**
 - Spec: HU11 · Plan: 4.6, 4.7 · Depende de: T02
 - Fábrica de modelos de OpenRouter, **LLM falso** para tests, `messages.yaml` con sus valores por
   defecto, prompts con versión y canario.
 - **Hecho cuando:** tests de carga de mensajes con datos del perfil y del LLM falso con salida estructurada y streaming.
+- **Nota (2026-10-09):** el LLM falso vive en `src` (`agent/fake_llm.py`), no en `tests`, porque
+  T27 y T28 corren `flock-ask` y `flock-eval` con él. `messages.yaml` incluye `secret_placeholder`
+  (plan 5.6), que usará T12. La versión de los prompts se calcula del texto (hash), así no se olvida subirla.
 
 **[ ] T21 — Búsqueda híbrida**
 - Spec: HU3 · Plan: 4.3 (`retrieve`), 4.8 · Depende de: T09, T10

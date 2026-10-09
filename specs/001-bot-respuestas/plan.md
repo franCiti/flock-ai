@@ -112,6 +112,7 @@ agent-service/
 │   │   ├── graph/              LangGraph state, nodes and graph assembly (section 4)
 │   │   ├── prompts/            system prompts (English)
 │   │   ├── llm.py              OpenRouter chat model factory (D08)
+│   │   ├── fake_llm.py         fake chat model: tests and development runs without API key (D41)
 │   │   ├── messages.py         loads config/messages.yaml (HU11)
 │   │   ├── guardrails.py       input limits, injection signals (HU15)
 │   │   ├── rate_limit.py       requests per minute per client app (HU15)
@@ -264,6 +265,7 @@ Todo lo configurable de la spec se resuelve con **variables de entorno** (docume
 | Modelo del LLM | `LLM_MODEL` | *se define con la evaluación* | D08 |
 | API key de OpenRouter | `OPENROUTER_API_KEY` | *vacío* | D08 |
 | Carpeta raíz de conocimiento | `KNOWLEDGE_ROOT` | `data/knowledge` | D29 |
+| Archivo de mensajes | `MESSAGES_FILE` | `agent-service/config/messages.yaml` | HU11 |
 
 > `MAX_REQUESTS_PER_MINUTE = 30` es un valor inicial propuesto; la spec no fija un número.
 
