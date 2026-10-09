@@ -78,7 +78,7 @@
 
 ### Conocimiento e ingesta
 
-**[ ] T09 — Schema `knowledge` y repositorio**
+**[x] T09 — Schema `knowledge` y repositorio**
 - Spec: HU3, HU4 · Plan: 3.2, 7.3 · Depende de: T08
 - Migraciones (yoyo), repositorio de personas, documentos, fragmentos, estado de sync, corridas y `meta`.
   Reemplazo atómico por documento y candado de ingesta.

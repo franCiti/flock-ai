@@ -1,11 +1,14 @@
 """PostgreSQL connection pool with certificate authentication (plan section 7.3)."""
 
+from pgvector.psycopg import register_vector_async
 from psycopg import AsyncConnection
 from psycopg.conninfo import make_conninfo
 from psycopg_pool import AsyncConnectionPool
 
 from flock_agent.common.settings import Settings
 from flock_agent.common.tls import TlsFiles
+
+Pool = AsyncConnectionPool[AsyncConnection]
 
 
 class DatabaseConfigError(ValueError):
@@ -35,12 +38,33 @@ def conninfo(settings: Settings) -> str:
     )
 
 
-async def open_pool(
-    settings: Settings, *, min_size: int = 1, max_size: int = 5
-) -> AsyncConnectionPool[AsyncConnection]:
-    """Open a pool and wait until its first connections are established (fails fast)."""
-    pool: AsyncConnectionPool[AsyncConnection] = AsyncConnectionPool(
-        conninfo(settings), min_size=min_size, max_size=max_size, open=False
+async def _configure_connection(connection: AsyncConnection) -> None:
+    # Adapts pgvector's `vector` type (extension created in infra/postgres/initdb).
+    await register_vector_async(connection)
+
+
+async def open_pool_with(
+    conninfo_string: str, *, min_size: int = 1, max_size: int = 5, register_vector: bool = True
+) -> Pool:
+    """Open a pool and wait until its first connections are established (fails fast).
+
+    register_vector=False is only for connecting before the pgvector extension exists.
+    """
+    pool: Pool = AsyncConnectionPool(
+        conninfo_string,
+        min_size=min_size,
+        max_size=max_size,
+        configure=_configure_connection if register_vector else None,
+        open=False,
     )
     await pool.open(wait=True, timeout=15)
     return pool
+
+
+async def open_pool(
+    settings: Settings, *, min_size: int = 1, max_size: int = 5, register_vector: bool = True
+) -> Pool:
+    """Pool for this process, authenticated with its certificate (see conninfo)."""
+    return await open_pool_with(
+        conninfo(settings), min_size=min_size, max_size=max_size, register_vector=register_vector
+    )

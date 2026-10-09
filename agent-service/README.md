@@ -25,6 +25,17 @@ Servicio Python de flock-ai: el **Agent Worker** (responde preguntas) y el **Ing
 
 - No dejan rastro: las tablas de prueba se borran al terminar y Kafka se lee sin grupo de
   consumidores, así no se mueven los offsets de los servicios.
+- Marca `integration_containers`: levantan un PostgreSQL efímero con **Testcontainers** (misma imagen
+  y mismo script de roles que el entorno real) para probar la lógica sobre tablas. Requieren Docker;
+  sin Docker se omiten. Ryuk está desactivado (falla en Docker Desktop para Windows): los contenedores
+  se detienen al terminar la sesión de tests.
+
+## Migraciones
+
+- Cada dueño de schema aplica las suyas al arrancar (`common/migrations.py`, yoyo): las de
+  `knowledge` están en `src/flock_agent/knowledge/migrations/`.
+- Una migración que use tipos de pgvector debe empezar con `SET LOCAL search_path = <schema>, public;`
+  (yoyo deja el `search_path` solo en el schema que migra).
 
 ## Notas
 

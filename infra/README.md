@@ -43,7 +43,7 @@ infra/certs/add-client.sh <clientId>    # certificado + tópico agent.replies.<c
 ## Administración
 
 ```bash
-docker compose exec postgres psql -U postgres flock_ai   # superusuario, solo desde dentro del contenedor
+docker compose exec --user postgres postgres psql flock_ai   # superusuario, solo desde dentro del contenedor
 docker compose down                                        # detener (los datos quedan en los volúmenes)
 docker compose down --volumes                              # detener y borrar los datos
 ```
