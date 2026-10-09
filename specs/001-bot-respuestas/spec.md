@@ -103,6 +103,10 @@ actualización, para que el bot use la información vigente.
    - **correos de Outlook guardados** (.msg): asunto, remitente, destinatarios, fecha y cuerpo.
    - **[A CLARIFICAR]** ¿También correos .eml, y los adjuntos de los .msg?
 7. Los archivos que no se pueden leer como texto (imágenes, binarios, PDF escaneados) se omiten y se informan.
+8. La actualización se ejecuta **automáticamente cada 30 minutos** (intervalo configurable) y también
+   se puede disparar **manualmente** desde la interfaz web o con un comando.
+9. **Dado** que hay una actualización en curso, **cuando** se dispara otra, **entonces** no se ejecutan
+   dos a la vez: se informa que ya hay una en curso.
 
 ### HU5 — Conversación con contexto · Prioridad P2
 
@@ -161,7 +165,9 @@ nombre real y no el nombre de la carpeta.
 2. **Dado** que el operador editó el perfil, **cuando** se ejecuta la actualización, **entonces** el bot
    usa los datos nuevos.
 3. El archivo de perfil **no** forma parte del conocimiento: no se usa para responder preguntas.
-4. **[A CLARIFICAR]** Campos del perfil (propuesta: nombre visible, área o rol, y una descripción breve
+4. El perfil incluye la **identidad de la persona en los sistemas externos** (por ejemplo, su email),
+   necesaria para tomar solo su contenido de Jira, Confluence y SharePoint (HU12).
+5. **[A CLARIFICAR]** Resto de los campos (propuesta: nombre visible, área o rol, y una descripción breve
    de sus temas, que también ayuda a elegir a quién derivar en HU2).
 
 ### HU10 — Interfaz web de demostración · Prioridad P2
@@ -204,8 +210,16 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 4. **Dado** que quito una fuente, **entonces** su contenido deja de usarse en las respuestas.
 5. Las fuentes **solo alimentan la base de conocimiento**: el bot no las consulta en vivo mientras responde.
 6. Las credenciales de acceso a las fuentes no se muestran en la interfaz una vez guardadas.
-7. **[A CLARIFICAR]** ¿Qué se toma de cada fuente: todo lo indicado, o solo lo que la persona escribió o en lo que participó?
-8. **[A CLARIFICAR]** ¿La actualización se puede disparar desde la interfaz, o sigue siendo solo un comando manual?
+7. De cada fuente se toma **solo lo que escribió la persona**:
+   - **Confluence:** páginas de las que es autora.
+   - **SharePoint:** archivos de los que es autora.
+   - **Jira:** issues en los que es **reporter** o **assignee**.
+8. **Dado** que la persona no tiene configurada su identidad en el perfil (HU9), **entonces** sus fuentes
+   externas no se procesan y se informa en el resumen de la actualización.
+9. La actualización de estas fuentes sigue la misma programación que la de archivos (HU4).
+10. **[A CLARIFICAR]** Confluence: ¿"autora" es solo quien creó la página, o también quien la editó?
+11. **[A CLARIFICAR]** Jira: de esos issues, ¿se toman todos los comentarios (también los de otras personas)
+    o solo la descripción y los comentarios de la persona?
 
 ## Casos borde
 
@@ -222,7 +236,11 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 - **Idioma:** responde en el idioma de la pregunta.
 - **Tiempo de respuesta:** máximo configurable, por defecto 2 minutos (HU6).
   **[A CLARIFICAR]** ¿Hay un objetivo para el primer fragmento?
-- **Configuración:** retención de conversaciones, tiempo máximo y mensajes se configuran sin cambiar el sistema.
+- **Configuración:** retención de conversaciones, tiempo máximo, intervalo de actualización y mensajes
+  se configuran sin cambiar el sistema.
+- **Documentación de interfaces:** la API web tiene documentación interactiva, y el contrato de
+  mensajería del bot (su API pública) está documentado y versionado, para que cualquier equipo
+  pueda integrarse sin leer el código.
 - **Privacidad:** los documentos solo salen del entorno hacia el servicio del modelo de lenguaje, y
   únicamente los fragmentos necesarios para cada respuesta.
 - **Disponibilidad:** el bot responde siempre que el servicio esté levantado; no depende de la
@@ -241,7 +259,6 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 - Ejecutar tareas en nombre del empleado.
 - Consultar fuentes externas en vivo durante una respuesta.
 - Correo como fuente directa (buzones); sí se aceptan correos guardados como archivos (HU4).
-- Actualización automática o programada del conocimiento.
 
 ## Funcionalidades futuras
 
@@ -255,7 +272,7 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 3. Consulta del registro de lo respondido (HU8).
 4. Campos del perfil de la persona (HU9).
 5. Mensajes configurables e idiomas (HU11).
-6. Fuentes externas: qué se toma de cada una y desde dónde se dispara la actualización (HU12).
+6. Fuentes externas: definición de autoría en Confluence y comentarios de Jira (HU12).
 7. Comportamiento durante una actualización del conocimiento.
 8. Objetivo de tiempo para el primer fragmento.
 9. Umbral de éxito del set de evaluación.

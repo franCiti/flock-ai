@@ -108,16 +108,24 @@ App cliente               Kafka                    Agent Worker               Po
                                │  login (1 usuario, tabla)
                                │  administración de fuentes
                                │  SSE hacia el front
-                               v
-                         Ingesta (Python) ──cliente MCP──> servidores MCP de
-                                                           Jira · Confluence · SharePoint
+                               │  scheduler (cada 30 min) + botón "actualizar"
+                               │
+                               │── ingestion.jobs ──> Kafka ──> Ingestion Worker (Python)
+                               │<─ ingestion.events ─ Kafka <──┘   │
+                                                                   │ cliente MCP
+                                                                   v
+                                               servidores MCP de Jira · Confluence · SharePoint
+
+ Documentación: Swagger UI (API REST, D32) · AsyncAPI en contracts/ (Kafka, D33)
 ```
 
 - **Core API (Java):** cliente del agente como cualquier otro (D23). Login con Spring Security y
   usuario en tabla (D16); guarda las fuentes de cada persona; retransmite las respuestas al front por SSE.
 - **Frontend (React):** chat con cuenta regresiva y administración de fuentes (D10).
 - **Fuentes externas vía MCP (D30):** la ingesta lee Jira, Confluence y SharePoint a través de
-  servidores MCP, solo para construir la base. Cómo se dispara la ingesta desde la interfaz: abierto.
+  servidores MCP, solo para construir la base, tomando solo lo escrito por la persona.
+- **Disparo de la ingesta (D31):** la Core API la programa cada 30 minutos y desde el botón de la
+  interfaz, publicando en `ingestion.jobs`. En la etapa 1 se usa el comando manual.
 
 ## Después del MVP
 

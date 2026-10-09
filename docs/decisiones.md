@@ -167,12 +167,9 @@ comandos; app Java (backend del front, login de un usuario, administración de f
 ### D28 — El bot está siempre activo · Aceptada
 Responde siempre que el servicio esté levantado; no hay lógica de disponibilidad o ausencia del empleado.
 
-### D29 — Ingesta del MVP: carpeta por persona, comando manual, sin Kafka · Aceptada
+### D29 — Ingesta del MVP: carpeta por persona · Aceptada (disparo: reemplazado por D31)
 Una carpeta raíz con **una subcarpeta por persona virtual**; el nombre de la subcarpeta es el `personaId`.
-La ingesta se ejecuta con un **comando manual**. No usa Kafka (los tópicos `ingestion.*` quedan
-para cuando exista el administrador).
-**Abierto:** con la administración de fuentes en el MVP (D27), falta decidir si la actualización
-también se dispara desde la interfaz (spec HU12).
+*Originalmente:* comando manual y sin Kafka. Ver D31.
 
 ### D30 — Jira, Confluence y SharePoint se leen vía MCP, solo para ingesta · Aceptada
 La ingesta usa clientes MCP contra servidores MCP de cada sistema para leer su contenido y
@@ -182,6 +179,29 @@ conectores (D19). El agente **no** consulta estas fuentes en vivo mientras respo
 un agente; hay que verificar que permitan recorrer todo el contenido y detectar cambios y bajas
 (sync incremental). Si alguno no lo permite, ese conector puede usar la API del sistema directamente
 sin cambiar la interfaz.
+**Autoría:** solo se toma lo escrito por la persona (Confluence y SharePoint: autora; Jira: reporter
+o assignee). Para filtrar, el perfil de la persona guarda su identidad en esos sistemas (email).
+
+### D31 — Disparo de la ingesta: cada 30 min y manual · Aceptada (mecanismo: Propuesta)
+**Comportamiento (Aceptado):** automática cada 30 minutos (configurable) y manual desde la interfaz;
+nunca dos ejecuciones simultáneas. El comando manual se mantiene para desarrollo.
+**Mecanismo (Propuesta):** la Core API es dueña de las fuentes, así que también programa la ingesta:
+un scheduler de Spring y el botón de la interfaz publican en `ingestion.jobs`; el Ingestion Worker
+consume, procesa y publica el resultado en `ingestion.events`. Reemplaza el "sin Kafka" de D29.
+
+### D32 — Documentación de la API REST: OpenAPI + Swagger UI · Aceptada
+La Core API genera su especificación OpenAPI desde el código (springdoc-openapi) y publica Swagger UI.
+**Motivo:** la API REST es interna (front ↔ Java); generarla desde el código evita que la doc quede desactualizada.
+
+### D33 — Documentación del contrato Kafka: AsyncAPI, contract-first · Propuesta
+El contrato público del agente (D23) se escribe **primero**, como especificación **AsyncAPI**
+(el equivalente a OpenAPI para mensajería) con los payloads en **JSON Schema**, dentro del repo
+(`contracts/`). De ese archivo se genera la documentación HTML navegable.
+Java y Python validan los mensajes contra esos mismos esquemas.
+**Motivo:** a diferencia de la API REST, este contrato es **público** y lo implementan dos lenguajes;
+escribirlo primero lo convierte en la fuente de verdad, en lugar de que lo defina el código de uno de los dos.
+**Alternativa:** Springwolf (genera AsyncAPI desde el código Spring, con UI similar a Swagger),
+pero documentaría solo el lado Java.
 
 ---
 
@@ -189,5 +209,4 @@ sin cambiar la interfaz.
 - Herramienta de SDD (GitHub Spec Kit o manual).
 - Herramientas de lint por lenguaje (D03).
 - Embeddings de producción (D22).
-- Formato del esquema del contrato Kafka (JSON Schema, Avro + Schema Registry...).
 - Despliegue (dónde y cómo).
