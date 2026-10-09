@@ -89,7 +89,7 @@
 - Interfaz `Embedder`, implementación con fastembed, caché del modelo, control de modelo en `meta` (reindexar si cambia).
 - **Hecho cuando:** tests verifican dimensiones, lotes y la detección de cambio de modelo.
 
-**[ ] T11 — División en fragmentos**
+**[x] T11 — División en fragmentos**
 - Plan: 5.5 · Depende de: T02
 - **Hecho cuando:** tests cubren cortes por encabezado y párrafo, solapamiento, contexto `[título > sección]` y correos e issues.
 
