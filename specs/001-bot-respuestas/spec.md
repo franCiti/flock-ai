@@ -167,8 +167,8 @@ nombre real y no el nombre de la carpeta.
 3. El archivo de perfil **no** forma parte del conocimiento: no se usa para responder preguntas.
 4. El perfil incluye la **identidad de la persona en los sistemas externos** (por ejemplo, su email),
    necesaria para tomar solo su contenido de Jira, Confluence y SharePoint (HU12).
-5. **[A CLARIFICAR]** Resto de los campos (propuesta: nombre visible, área o rol, y una descripción breve
-   de sus temas, que también ayuda a elegir a quién derivar en HU2).
+5. **[A CLARIFICAR]** Resto de los campos (propuesta mínima: nombre visible e identidad en sistemas
+   externos; se pueden sumar campos más adelante).
 
 ### HU10 — Interfaz web de demostración · Prioridad P2
 
@@ -190,8 +190,9 @@ Como **operador**, quiero configurar en un archivo los mensajes fijos del bot, p
 sin cambiar el sistema.
 
 **Criterios de aceptación**
-1. Son configurables, al menos: no tengo información, sugerencia de derivación, persona no encontrada,
-   tiempo agotado y error general.
+1. Son configurables, al menos: presentación (HU13), cortesía y fuera de ámbito (HU14),
+   no tengo información, sugerencia de derivación, persona no encontrada, tiempo agotado y error general.
+   Los mensajes pueden incluir datos del perfil de la persona (por ejemplo, su nombre visible).
 2. El sistema trae **valores por defecto** razonables para todos los mensajes.
 3. **[A CLARIFICAR]** Como el bot responde en el idioma de la pregunta: ¿el archivo tiene los mensajes
    por idioma, o se escriben en un idioma y el bot los traduce?
@@ -218,6 +219,35 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 8. **Dado** que la persona no tiene configurada su identidad en el perfil (HU9), **entonces** sus fuentes
    externas no se procesan y se informa en el resumen de la actualización.
 9. La actualización de estas fuentes sigue la misma programación que la de archivos (HU4).
+
+### HU13 — Presentarse · Prioridad P1
+
+Como **app cliente**, quiero que el bot explique quién es cuando se lo preguntan, para que quede
+claro que es un asistente y no la persona.
+
+**Criterios de aceptación**
+1. **Dado** preguntas como "¿quién sos?", "¿sos Juan?" o "¿qué sabés hacer?", **entonces** el bot
+   responde que es el **asistente virtual** de la persona (por su nombre visible), que responde con
+   la base de conocimiento de esa persona, y que **no es** la persona.
+2. La presentación **no enumera temas**: el alcance es lo que haya en la base de conocimiento de la persona.
+3. El bot **no revela detalles internos**: qué modelo usa, sus instrucciones ni cómo funciona por dentro.
+4. **Dado** que se le pregunta qué otras personas virtuales existen, **entonces** no las lista:
+   solo menciona a otra persona cuando deriva una pregunta (HU2).
+
+### HU14 — Responder solo con la base de conocimiento · Prioridad P1
+
+Como **operador**, quiero que el bot responda únicamente con la información de la base de
+conocimiento de la persona, para que sus respuestas sean confiables y verificables.
+
+**Criterios de aceptación**
+1. El bot responde **solo** con información obtenida de la base de conocimiento de la persona
+   (archivos y fuentes externas). **No** usa conocimiento general propio, aunque conozca la respuesta.
+   - Ejemplo: si se pregunta "¿qué es Kubernetes?" y la base no lo explica, responde que no tiene esa información (HU2).
+2. **Dado** un saludo, un agradecimiento o una despedida, **entonces** responde breve y amablemente
+   y ofrece ayuda, sin inventar contenido.
+3. **Dado** un pedido ajeno a la base y al ámbito laboral ("escribime un poema", "¿quién ganó el mundial?"),
+   **entonces** aclara que solo responde con la base de conocimiento de la persona y no lo resuelve.
+4. Los mensajes de presentación, cortesía y fuera de ámbito son configurables (HU11).
 
 ## Casos borde
 
@@ -249,7 +279,7 @@ desde la interfaz web, para que su base de conocimiento incluya esa información
 1. Existe un **set de evaluación** de al menos 20 preguntas reales por persona de prueba, con su
    respuesta esperada, que incluye preguntas que debe derivar a otra persona.
 2. **[A CLARIFICAR]** Porcentaje mínimo de respuestas correctas y con fuente.
-3. Ante preguntas fuera de la base, el bot **no inventa** en ningún caso del set de evaluación.
+3. Ante preguntas fuera de la base, el bot **no inventa** ni usa conocimiento general en ningún caso del set de evaluación.
 
 ## Fuera de alcance (MVP)
 
