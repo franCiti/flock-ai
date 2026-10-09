@@ -66,7 +66,7 @@
 - Servicio en Compose, TLS, autenticación por certificado, `init.sql` con extensión, schemas, roles y permisos.
 - **Hecho cuando:** cada rol se conecta con su certificado; sin certificado se rechaza; `agent` no puede escribir en `knowledge`.
 
-**[ ] T07 — Kafka con mTLS y ACLs**
+**[x] T07 — Kafka con mTLS y ACLs**
 - Plan: 7.2 · Depende de: T04
 - Servicio KRaft en Compose, listener SSL con certificado obligatorio, contenedores `certs-init` y `kafka-init` (tópicos y ACLs).
 - **Hecho cuando:** `docker compose up` deja todo sano; cada usuario puede solo lo de su tabla de ACLs; sin certificado se rechaza.
