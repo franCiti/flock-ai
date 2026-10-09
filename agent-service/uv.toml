@@ -1,0 +1,3 @@
+# The corporate network inspects HTTPS: trust the Windows certificate store
+# (see docs/notas-entorno.md).
+system-certs = true

@@ -45,7 +45,9 @@ flock-ai/
 ```
 
 - **Comando único de calidad:** `pre-commit run --all-files` ejecuta todos los linters de todos los
-  lenguajes; los mismos hooks corren antes de cada commit. Pre-commit se ejecuta con `uvx`, sin instalación global.
+  lenguajes; los mismos hooks corren antes de cada commit. Pre-commit se instala con
+  `uv tool install pre-commit` (instalación del usuario y permanente: el hook de git guarda la ruta de
+  su Python, así que no sirve un entorno temporal como el de `uvx`).
 - **`CLAUDE.md`:** deja escritas las reglas del proyecto (idiomas, linters, SDD) para que cualquier
   sesión de Claude Code las respete sin depender de la memoria de una conversación.
 

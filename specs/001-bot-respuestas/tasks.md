@@ -33,7 +33,7 @@
   `.pre-commit-config.yaml` con hooks genéricos (espacios, fin de archivo, YAML/JSON válidos, archivos grandes, claves privadas), `scripts/check.sh`.
 - **Hecho cuando:** `pre-commit run --all-files` pasa y el hook se ejecuta en cada commit.
 
-**[ ] T02 — Esqueleto de agent-service**
+**[x] T02 — Esqueleto de agent-service**
 - Plan: 1.3, 1.8 · Depende de: T01
 - Proyecto uv, estructura de paquetes, configuración de Ruff y mypy estricto (y sus hooks en
   pre-commit), `settings.py` con todas las variables de 1.8, logs en JSON, `truststore`, pytest.

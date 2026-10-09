@@ -13,7 +13,32 @@ repos:
       - id: check-yaml
       - id: check-json
       - id: check-toml
+      - id: fix-byte-order-marker
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1024]
       - id: detect-private-key
+
+  # Python (agent-service). Local hooks run through uv so they use the versions pinned in
+  # agent-service/uv.lock, the same ones used when running the tools by hand.
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (agent-service)
+        entry: uv run --project agent-service ruff check --fix
+        language: system
+        types: [python]
+        files: ^agent-service/
+      - id: ruff-format
+        name: ruff format (agent-service)
+        entry: uv run --project agent-service ruff format
+        language: system
+        types: [python]
+        files: ^agent-service/
+      - id: mypy
+        name: mypy (agent-service)
+        entry: uv run --directory agent-service mypy
+        language: system
+        types: [python]
+        files: ^agent-service/
+        pass_filenames: false
