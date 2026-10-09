@@ -122,10 +122,12 @@
   envenenados y documentos con secretos.
 - **Hecho cuando:** cada persona tiene contenido suficiente para 20 casos de evaluación y hay contenido que solo tiene la otra persona.
 
-**[ ] T18 — Pipeline de ingesta y CLI**
+**[x] T18 — Pipeline de ingesta y CLI**
 - Spec: HU4, HU9 · Plan: 5.1, 5.5, 5.8 · Depende de: T09–T12, T14–T17
 - Recorrido completo de 5.1 (sin Kafka), resumen por persona, `flock-ingest run`.
 - **Hecho cuando:** test de integración ingesta `examples/knowledge`; una segunda corrida no reprocesa nada; borrar un archivo lo quita de la base.
+- **Nota (2026-10-09):** se hizo antes que T12 y T14, a pedido. Quedan como puntos de extensión marcados
+  `TODO(T12)` (`knowledge/redaction.py` no oculta nada todavía) y `TODO(T14)` (los `.eml`/`.msg` se omiten).
 
 ### Agente
 

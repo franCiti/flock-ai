@@ -45,5 +45,21 @@ Servicio Python de flock-ai: el **Agent Worker** (responde preguntas) y el **Ing
   las conexiones a internet; las conexiones internas usan un contexto propio que confía solo en la
   CA de flock-ai (`common/tls.py`).
 
-Los comandos `flock-agent`, `flock-ingest`, `flock-ask` y `flock-eval` se implementan en las tareas
-T18, T25, T26 y T28.
+## Actualizar la base de conocimiento a mano (`flock-ingest run`)
+
+Contra el entorno de Docker Compose, con el certificado de la ingesta (PowerShell, desde la raíz del repo):
+
+```powershell
+$certs = (Resolve-Path infra\certs\out\ingestion).Path
+$env:TLS_CERT_FILE = "$certs\ingestion.crt"; $env:TLS_KEY_FILE = "$certs\ingestion.key"; $env:TLS_CA_FILE = "$certs\ca.crt"
+$env:POSTGRES_USER = "ingestion"; $env:KNOWLEDGE_ROOT = (Resolve-Path examples\knowledge).Path
+cd agent-service; uv run flock-ingest run              # o --persona juan-plataforma
+```
+
+Aplica las migraciones pendientes, procesa las carpetas e imprime el resumen por persona. Salida:
+`0` bien, `1` falló, `3` ya había otra actualización en curso.
+
+Pendiente: ocultar secretos (T12) y leer correos (T14) están marcados como `TODO` en el código.
+
+Los comandos `flock-ingest worker`, `flock-agent`, `flock-ask` y `flock-eval` se implementan en las
+tareas T34, T25, T26 y T28.
