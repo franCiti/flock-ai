@@ -1,0 +1,77 @@
+/* Flock Design System — design tokens v1.1
+   System font stack, no web fonts. Light is default; dark via html.dark.
+   v1.1 adds: dark theme, mono font for data, nav + stat gradients. */
+:root {
+  /* Brand */
+  --brand:        #7800C0;  /* Brand Purple — primary action, links */
+  --brand-dark:   #300840;  /* Brand Dark — titles, topbar, contrast text */
+  --brand-2:      #9D2BD6;  /* Brand Bright — accents, gradients, bullets */
+  --accent:       #F85000;  /* Accent Orange — punctual emphasis / secondary CTA */
+
+  /* Tints & surfaces */
+  --brand-soft:   #f3e6fb;  /* chip / icon backgrounds */
+  --brand-softer: #faf5fe;  /* page background */
+  --surface:      #f8f3fc;  /* subtle surfaces, table headers */
+  --panel:        #ffffff;  /* cards / panels */
+  --bg:           #ffffff;
+
+  /* Text */
+  --text:         #2c0b3a;  /* primary text */
+  --text-soft:    #6b5a78;  /* secondary text / descriptions */
+  --text-faint:   #9b8aa8;  /* captions, placeholders, labels */
+
+  /* Borders */
+  --border:        #e9ddf4; /* default card border */
+  --border-strong: #d9c7ec; /* input borders, strong dividers */
+
+  /* Radius / shadow */
+  --radius: 12px;
+  --shadow:    0 1px 3px rgba(48,8,64,.08), 0 1px 2px rgba(48,8,64,.05);
+  --shadow-lg: 0 22px 50px -16px rgba(48,8,64,.42);
+
+  /* Font stacks (v1.1: mono added for data-dense numbers/tables) */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Gradients (v1.1) */
+  --brand-gradient: linear-gradient(120deg, #300840 0%, #7800C0 100%); /* topbar / brand band */
+  --nav-gradient:   linear-gradient(185deg, #300840 0%, #24062f 100%); /* dark brand sidebar */
+  --stat-gradient:  linear-gradient(135deg, #7800C0 0%, #9D2BD6 100%); /* gradient hero/stat card */
+}
+
+/* Dark theme (v1.1). Brand brightens for contrast; --brand-dark and --accent hold. */
+html.dark {
+  --brand:        #9D2BD6;  /* brightened purple for contrast on dark */
+  --brand-dark:   #300840;
+  --brand-2:      #B15EDB;
+  --accent:       #F85000;
+
+  --brand-soft:   rgba(157,43,214,.14); /* chip / icon tint on dark */
+  --brand-softer: #161b22;
+  --surface:      #161b22;
+  --panel:        #1c2128;
+  --bg:           #0d1117;
+
+  --text:         #e6edf3;
+  --text-soft:    #8b949e;
+  --text-faint:   #484f58;
+
+  --border:        rgba(255,255,255,.10);
+  --border-strong: rgba(255,255,255,.16);
+
+  --shadow:    0 1px 3px rgba(0,0,0,.40), 0 1px 2px rgba(0,0,0,.30);
+  --shadow-lg: 0 22px 50px -16px rgba(0,0,0,.60);
+}
+
+/* Tabular data — pair --font-mono with tabular-nums for aligned numbers */
+.text-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* Gradient stat/hero card — brighten on hover, never flip to white */
+.stat-card-hero { background: var(--stat-gradient); color: #fff; transition: filter .15s ease; }
+.stat-card-hero:hover { filter: brightness(1.07); }
+
+/* State colors — bg / fg / bar
+   Pending:    #f1ecf6 / #6b5a78 / #9b8aa8
+   In progress:#f3e6fb / #7800C0 / #7800C0
+   Blocked:    #fde7ee / #be123c / #e11d48
+   Completed:  #dcf7e6 / #15803d / #16a34a */

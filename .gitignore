@@ -1,0 +1,30 @@
+# Secrets and local config
+.env
+*.pem
+*.key
+*.p12
+*.jks
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Java
+target/
+build/
+.gradle/
+
+# Node
+node_modules/
+dist/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
