@@ -65,11 +65,11 @@ contracts/
 └── docs/                     generated HTML documentation (gitignored, built on demand)
 ```
 
-- Es la **fuente de verdad**: Java y Python **generan** sus clases a partir de estos esquemas,
-  en lugar de escribirlas a mano. Si el contrato cambia, el código que no lo respeta no compila
-  o no pasa los tests.
+- Es la **fuente de verdad**: Java y Python construyen sus clases a partir de estos esquemas.
+  Si el contrato cambia, el código que no lo respeta no compila o no pasa los tests.
   - Python: modelos Pydantic generados con `datamodel-code-generator`.
-  - Java: clases generadas con `jsonschema2pojo` (plugin de Maven) en cada build.
+  - Java: records escritos a mano, verificados contra los esquemas y los ejemplos por un test de
+    contrato en cada build (D42; `jsonschema2pojo` no soporta `oneOf`/`allOf`).
 - El versionado va en el nombre del esquema (`.v1`) y en el campo `version` del mensaje (D23).
 - El detalle de los mensajes se define en la sección 2.
 
@@ -163,7 +163,7 @@ Un proyecto Maven de un solo módulo, organizado **por funcionalidad** (no por c
 
 ```
 core-api/
-├── pom.xml                   Spring Boot, springdoc, Spotless, Checkstyle, jsonschema2pojo
+├── pom.xml                   Spring Boot, springdoc, Spotless, Checkstyle
 └── src/
     ├── main/java/ar/com/flockit/flockai/core/
     │   ├── CoreApiApplication.java
@@ -174,6 +174,7 @@ core-api/
     │   ├── chat/              REST + SSE for the web, Kafka client of the agent (HU10)
     │   ├── audit/             audit log queries for the web (HU8)
     │   ├── kafka/             Kafka config (mTLS), topics
+    │   ├── contract/          records of the public contract (D42)
     │   └── common/            errors, config properties
     ├── main/resources/
     │   ├── application.yml
@@ -184,7 +185,10 @@ core-api/
 - **Paquete base:** `ar.com.flockit.flockai.core`.
 - **Migraciones de base:** Flyway, solo sobre el schema `core` (D12).
 - **Documentación:** springdoc genera OpenAPI y publica Swagger UI en `/docs/swagger-ui` (D32).
-- **Clases del contrato:** generadas desde `contracts/schemas` en cada build (sección 1.2).
+- **Clases del contrato:** records en `contract/`, verificados en cada build contra `contracts/schemas`
+  y `contracts/examples` (sección 1.2, D42).
+- **Calidad:** Spotless con palantir-java-format (4 espacios, como `.editorconfig`) y Checkstyle con
+  reglas propias que no repiten lo que ya resuelve el formateador. Se usa el Maven Wrapper (`./mvnw`).
 - **Personas y auditoría:** viven en schemas de Python; Java las recibe por Kafka y guarda copias
   de lectura (sección 3.5).
 
@@ -1444,8 +1448,9 @@ sin red y siempre con el mismo resultado.
 ### 8.4 Tests del contrato
 
 - Los ejemplos de la sección 2 y de `contracts/` se validan contra los JSON Schema.
-- Los modelos generados (Python y Java) se regeneran en cada build: si el contrato cambia y el código
-  no, falla la compilación o los tests.
+- Python: los modelos generados se regeneran en un test; si el contrato cambia y el código no, falla.
+- Java: los records se comparan con los ejemplos (ida y vuelta) y con los esquemas (validación,
+  propiedades y enums) en cada build (D42).
 
 ### 8.5 Prueba de humo de punta a punta
 

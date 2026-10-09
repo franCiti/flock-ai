@@ -255,6 +255,20 @@ Durante el desarrollo, los tests usan un LLM falso y no consumen la API key. La 
 calidad y la prueba de humo de punta a punta, que sí usan OpenRouter, se corren solo al cerrar cada etapa.
 **Motivo:** controlar el gasto de tokens.
 
+### D42 — Clases Java del contrato: records escritos a mano, verificados contra los esquemas · Aceptada
+Precisa D33 para Java. Las clases del contrato en `core-api` son **records de Java 21 escritos a mano**:
+los mensajes con variantes (`AgentReply`, `IngestionEvent`, las fuentes del `IngestionJob`) son una
+`sealed interface` que Jackson resuelve por el campo `type`. Un test de contrato deserializa cada ejemplo
+de `contracts/examples`, lo vuelve a serializar y exige el mismo JSON, valida lo serializado contra el
+JSON Schema, exige que cada record tenga exactamente las propiedades de su esquema y compara los enums
+(y los valores de `type`) con los del esquema. Si el contrato cambia y Java no, falla el build.
+**Motivo:** `jsonschema2pojo`, previsto en el plan, no soporta `oneOf` ni `allOf`, que es como el
+contrato modela los mensajes con variantes; las clases generadas quedarían vacías justo en los mensajes
+que la Core API más usa.
+**Alternativas descartadas:** combinar `jsonschema2pojo` con clases a mano (dos estilos mezclados) y
+`openapi-generator` envolviendo los esquemas en un documento OpenAPI (frágil con draft-07 y agrega
+complejidad al build).
+
 ---
 
 ## Abiertas

@@ -212,10 +212,15 @@
 
 ### Core API
 
-**[ ] T30 — Esqueleto de core-api**
-- Plan: 1.4 · Decisiones: D05, D32, D36 · Depende de: T03
-- Maven, Spring Boot, Spotless y Checkstyle (y sus hooks), springdoc, Actuator, generación de clases desde `contracts/`.
+**[x] T30 — Esqueleto de core-api**
+- Plan: 1.4 · Decisiones: D05, D32, D36, D42 · Depende de: T03
+- Maven, Spring Boot, Spotless y Checkstyle (y sus hooks), springdoc, Actuator, records del contrato con su test (D42).
 - **Hecho cuando:** `mvn verify` pasa con un test de contexto.
+- **Nota (2026-10-09):** `jsonschema2pojo` no soporta `oneOf`/`allOf`, así que las clases del contrato
+  son records escritos a mano verificados por `ContractTest` (D42). Spring Boot 4.1.1 (Jackson 3),
+  springdoc 3.1.1, Maven Wrapper con Maven 3.9.16, Spotless con palantir-java-format. Los hooks de
+  pre-commit llaman a Maven vía `scripts/run_maven.py`. `ContractTest` lee `../contracts` (propiedad
+  `contracts.dir`): la imagen de T39 tendrá que incluir esa carpeta o saltear los tests.
 
 **[ ] T31 — Conexiones de Java**
 - Plan: 6.5, 7.2, 7.3 · Depende de: T30, T06, T07

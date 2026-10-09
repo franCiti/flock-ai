@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: core-api
+
+server:
+  port: 8080
+
+# Only the health endpoint is exposed; the details stay internal.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# OpenAPI generated from the code and Swagger UI under /docs (D32, plan 1.4).
+springdoc:
+  api-docs:
+    path: /docs/openapi
+  swagger-ui:
+    path: /docs/swagger-ui

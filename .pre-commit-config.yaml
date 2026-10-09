@@ -48,3 +48,20 @@ repos:
         types: [python]
         files: ^agent-service/
         pass_filenames: false
+
+  # Java (core-api). Through the Maven Wrapper, so they use the versions pinned in core-api/pom.xml.
+  # scripts/run_maven.py picks mvnw or mvnw.cmd depending on the operating system.
+  - repo: local
+    hooks:
+      - id: spotless
+        name: spotless (core-api)
+        entry: python scripts/run_maven.py spotless:apply
+        language: python
+        files: ^core-api/(src/.*\.java|pom\.xml)$
+        pass_filenames: false
+      - id: checkstyle
+        name: checkstyle (core-api)
+        entry: python scripts/run_maven.py checkstyle:check
+        language: python
+        files: ^core-api/(src/.*\.java|pom\.xml|checkstyle\.xml)$
+        pass_filenames: false

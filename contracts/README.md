@@ -33,7 +33,12 @@ son código.
    cd agent-service && uv run pytest tests/unit/test_contracts.py
    ```
 
-3. Las clases de Java se regeneran solas en cada build de `core-api` (a partir de la T30).
+3. Actualizar los records de Java en `core-api` (paquete `contract`, D42) y correr sus tests: comparan
+   los records con los ejemplos y los esquemas.
+
+   ```bash
+   cd core-api && ./mvnw verify
+   ```
 
 ## Documentación
 

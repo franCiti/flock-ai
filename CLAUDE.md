@@ -79,7 +79,12 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
 - **Entorno de Docker Compose:** `docker compose up -d --wait` desde la raíz (Postgres en `5433`, Kafka
   en `9093`). Verificaciones: `infra/postgres/check.sh`, `infra/kafka/check.sh`. Detalle en `infra/README.md`.
 - **Comandos de calidad:** `cd agent-service && uv run pytest` (incluye Testcontainers; necesita Docker),
-  `uv run ruff check`, `uv run mypy`; todo junto: `pre-commit run --all-files`.
+  `uv run ruff check`, `uv run mypy`; Java: `cd core-api && ./mvnw verify` (Maven Wrapper, no hace
+  falta Maven instalado); todo junto: `pre-commit run --all-files`.
+- **Hooks de Java:** Spotless y Checkstyle corren vía `scripts/run_maven.py` (en Windows, `bash` es el
+  de WSL y `sh` no está en el PATH, así que pre-commit no puede lanzar `mvnw` directamente).
+- **Commits:** agregar solo los archivos de la tarea (`git add <rutas>`), nunca `git add -A`: puede
+  haber otra sesión trabajando en el mismo árbol.
 - **Código generado:** los modelos del contrato (`flock_agent/contracts/generated/`) se regeneran con
   `uv run python scripts/generate_contracts.py`; un test falla si quedan desactualizados.
 - **Ingesta manual contra el entorno:** ver `agent-service/README.md` (`flock-ingest run`).
