@@ -335,7 +335,7 @@ Un pedido produce **varios** mensajes `AgentReply`, distinguidos por el campo `t
 
 ```
 accepted ──> token ──> token ──> … ──> final
-    │                                     
+    │  
     └──────────────(en cualquier punto)──> error
 ```
 

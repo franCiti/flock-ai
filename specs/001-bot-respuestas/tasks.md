@@ -27,7 +27,7 @@
 
 ### Fundaciones
 
-**[ ] T01 — Base del repositorio**
+**[x] T01 — Base del repositorio**
 - Plan: 1.1 · Decisiones: D02, D03
 - `CLAUDE.md` (reglas del proyecto), `README.md`, `.editorconfig`, `.env.example`,
   `.pre-commit-config.yaml` con hooks genéricos (espacios, fin de archivo, YAML/JSON válidos, archivos grandes, claves privadas), `scripts/check.sh`.
