@@ -1,6 +1,6 @@
 # Plan técnico: bot que responde con el conocimiento de un empleado (MVP)
 
-**Estado:** En redacción (secciones 1–5 de 9)
+**Estado:** En redacción (secciones 1–6 de 9)
 **Spec:** [spec.md](spec.md) (aprobada) · **Decisiones:** [docs/decisiones.md](../../docs/decisiones.md)
 
 > El plan describe **cómo** se construye lo que pide la spec. Cada pieza indica qué historias
@@ -14,7 +14,7 @@
 3. [Modelo de datos](#3-modelo-de-datos)
 4. [Grafo del agente](#4-grafo-del-agente)
 5. [Ingesta y conectores](#5-ingesta-y-conectores)
-6. Core API y front — *pendiente*
+6. [Core API y front](#6-core-api-y-front)
 7. Seguridad e infraestructura — *pendiente*
 8. Tests y evaluación — *pendiente*
 9. Riesgos y mapa de cobertura de la spec — *pendiente*
@@ -179,7 +179,7 @@ core-api/
 
 - **Paquete base:** `ar.com.flockit.flockai.core`.
 - **Migraciones de base:** Flyway, solo sobre el schema `core` (D12).
-- **Documentación:** springdoc genera OpenAPI y publica Swagger UI en `/swagger-ui` (D32).
+- **Documentación:** springdoc genera OpenAPI y publica Swagger UI en `/docs/swagger-ui` (D32).
 - **Clases del contrato:** generadas desde `contracts/schemas` en cada build (sección 1.2).
 - **Personas y auditoría:** viven en schemas de Python; Java las recibe por Kafka y guarda copias
   de lectura (sección 3.5).
@@ -1099,7 +1099,121 @@ regulares, cada uno con tests:
 
 ## 6. Core API y front
 
-*Pendiente.*
+Cubre: HU4, HU6, HU8, HU10, HU12, HU15.6 · Aplica: D05, D09, D10, D16, D23, D31, D32
+
+### 6.1 Cómo se sirven (mismo origen)
+
+```
+navegador ──> web (nginx) ──┬── /            archivos estáticos del front (React compilado)
+                            └── /api, /docs  proxy ──> core-api
+```
+
+- Front y API comparten **el mismo origen**: no hace falta configurar CORS y la cookie de sesión
+  funciona sin trucos.
+- En desarrollo, el servidor de Vite hace el mismo proxy de `/api` hacia la Core API.
+
+### 6.2 Seguridad de la sesión (D16)
+
+- **Login:** `POST /api/auth/login` con usuario y contraseña (JSON). Spring Security valida contra
+  `app_user` y crea la sesión.
+- **Cookie de sesión:** `HttpOnly` (JavaScript no puede leerla), `SameSite=Strict` y `Secure`
+  (configurable: los navegadores la aceptan en `http://localhost` para desarrollo).
+- **CSRF:** como la autenticación es por cookie, se activa la protección CSRF de Spring Security:
+  la API entrega un token en una cookie legible y el front lo devuelve en el header `X-XSRF-TOKEN`
+  en cada `POST`/`DELETE`.
+- **Todo `/api/**` requiere sesión**, excepto el login.
+- **La documentación (`/docs/**`) es pública**: Swagger UI, la especificación OpenAPI y la
+  documentación AsyncAPI se ven sin iniciar sesión, para que otros equipos puedan integrarse.
+  Swagger UI permite probar endpoints, pero sin sesión la API responde `401`.
+- **Errores:** formato estándar *Problem Details* (RFC 7807), que Spring trae incorporado.
+
+### 6.3 API REST
+
+| Método y ruta | Qué hace | Spec |
+|---|---|---|
+| `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` | Sesión | HU10.1 |
+| `GET /api/config` | Parámetros que el front necesita (por ejemplo, `maxQuestionChars`) | HU15.5 |
+| `GET /api/personas` | Personas disponibles (`persona_view`) | HU10.2 |
+| `POST /api/conversations/{conversationId}/messages` | Envía una pregunta `{ personaId, question }` → `202 { requestId }` | HU10 |
+| `GET /api/conversations/{conversationId}/stream` | **SSE** con las respuestas de esa conversación | HU6, HU10 |
+| `GET /api/personas/{personaId}/sources` · `POST …/sources` | Lista y alta de fuentes externas | HU12.1 |
+| `DELETE /api/sources/{sourceId}` | Baja de una fuente | HU12.4 |
+| `POST /api/ingestion/runs` | Actualización manual → `202 { jobId }` | HU4.8 |
+| `GET /api/ingestion/runs` | Historial de actualizaciones con su resumen | HU4.5 |
+| `GET /api/audit` | Registro paginado, con filtros por persona, fechas, `outcome` y flags | HU8.2 |
+
+- El `conversationId` lo genera el **front** (un UUID); "conversación nueva" = un UUID nuevo (HU10.6).
+- La validación del `scope` de una fuente depende del tipo: clave de proyecto (Jira), clave de
+  espacio (Confluence), URL del sitio + carpeta (SharePoint).
+- Swagger UI en `/docs/swagger-ui` (D32); la documentación AsyncAPI en `/docs/asyncapi` (2.7).
+
+### 6.4 El chat: de HTTP a Kafka y de vuelta
+
+```
+Front                         Core API                                   Kafka
+  │ GET …/stream (SSE) ────────>│ registra el stream de esa conversación    │
+  │ POST …/messages ───────────>│── AgentRequest (replyTo =                 │
+  │ <── 202 { requestId } ──────│   agent.replies.core-api) ──────────────>│
+  │                             │<── AgentReply (accepted, token…, final) ──│
+  │ <── eventos SSE ────────────│   reenvía por conversationId              │
+```
+
+- La Core API es **un cliente más** del agente (D23): publica en `agent.requests` y escucha
+  `agent.replies.core-api`.
+- El front **abre el SSE antes** de enviar la pregunta, para no perder los primeros mensajes.
+- Cada evento SSE lleva el `seq` como identificador. La Core API guarda en memoria los eventos del
+  pedido en curso de cada conversación (hasta `ANSWER_TIMEOUT`): si el navegador se reconecta,
+  recibe lo que se perdió.
+- **Una sola instancia** de la Core API en el MVP: con varias, cada una debería recibir solo las
+  respuestas de sus conversaciones (queda para después).
+
+### 6.5 Kafka en la Core API
+
+| Tópico | Rol | Para qué |
+|---|---|---|
+| `agent.requests` | Produce | Preguntas del chat |
+| `agent.replies.core-api` | Consume | Respuestas → SSE |
+| `ingestion.jobs` | Produce | Scheduler cada `INGESTION_INTERVAL` y botón "actualizar" (D31) |
+| `ingestion.events` | Consume | `persona_view` e `ingestion_run_view` (3.5) |
+| `agent.audit` | Consume | `audit_entry_view` (3.5) |
+
+- Con `spring-kafka`, mTLS configurado en `application.yml` (sección 7).
+- Las copias de lectura se actualizan con **upserts por id**: procesar un mensaje dos veces da el mismo resultado.
+- El scheduler arma el `IngestionJob` con **todas** las fuentes de la tabla `source` (3.6).
+
+### 6.6 Front: pantallas
+
+Los textos de la interfaz están en **español** (el código, en inglés).
+
+| Ruta | Pantalla | Spec |
+|---|---|---|
+| `/login` | Usuario y contraseña | HU10.1 |
+| `/chat` | Selector de persona, conversación, pregunta con contador de caracteres, "conversación nueva" | HU10 |
+| `/sources` | Fuentes externas por persona (alta, baja), botón "Actualizar ahora" e historial de actualizaciones con su resumen | HU4, HU12 |
+| `/audit` | Registro con filtros y detalle de cada entrada | HU8 |
+
+**Detalle del chat (HU6, HU10, HU15.6):**
+- **Cuenta regresiva:** con el `accepted` se calcula la duración como `deadlineAt − sentAt` (ambas
+  fechas del servidor, así no influye el reloj de la PC) y se descuenta desde que llega el mensaje.
+- **Streaming:** los `token` se agregan al texto; al llegar el `final`, se reemplaza por `final.answer`.
+- **Fuentes:** debajo de la respuesta, cada cita con título, sección y enlace (o la ruta, si es un
+  archivo de carpeta).
+- **Derivación:** un aviso destacado "Preguntale a *Ana Gómez*".
+- **Errores:** el `message` del error; si es `retryable`, un botón "Reintentar".
+- **Markdown seguro:** se renderiza **sin HTML**, sin imágenes, y solo con enlaces a las citas, que
+  se abren en otra pestaña. Es una segunda barrera además del saneamiento del agente (4.3).
+
+### 6.7 Front: técnica
+
+| Necesidad | Elección |
+|---|---|
+| Ruteo | React Router |
+| Datos de la API | TanStack Query (caché, reintentos, estados de carga) |
+| Tipos de la API | Generados desde el OpenAPI de la Core API (`openapi-typescript`) |
+| Streaming | `EventSource` nativo del navegador |
+| Markdown | `react-markdown` sin plugins de HTML, con imágenes desactivadas |
+| Estilos | Tokens del design system de Flock (skill `flock-design-system`) como variables CSS + CSS Modules |
+| Calidad | ESLint, Prettier, `tsc` estricto, Vitest (D03, D38) |
 
 ## 7. Seguridad e infraestructura
 
