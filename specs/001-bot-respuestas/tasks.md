@@ -149,10 +149,13 @@
   T27 y T28 corren `flock-ask` y `flock-eval` con él. `messages.yaml` incluye `secret_placeholder`
   (plan 5.6), que usará T12. La versión de los prompts se calcula del texto (hash), así no se olvida subirla.
 
-**[ ] T21 — Búsqueda híbrida**
+**[x] T21 — Búsqueda híbrida**
 - Spec: HU3 · Plan: 4.3 (`retrieve`), 4.8 · Depende de: T09, T10
 - Vectorial + palabras + Reciprocal Rank Fusion, siempre filtrada por persona; búsqueda en las demás personas para derivar.
 - **Hecho cuando:** tests de integración: encuentra por sentido y por término exacto, y nunca devuelve fragmentos de otra persona.
+- **Nota (2026-10-09):** RRF con k = 60. Cada resultado trae además su similitud coseno (absoluta):
+  `REFERRAL_MIN_SCORE` se compara contra ella, porque el puntaje de RRF solo ordena dentro de una búsqueda.
+  El umbral y la confirmación con el LLM se aplican en `find_referral` (T23).
 
 **[ ] T22 — Nodos de entrada**
 - Spec: HU13, HU14, HU15.1 · Plan: 4.3 · Depende de: T20

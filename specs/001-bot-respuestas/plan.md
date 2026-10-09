@@ -94,6 +94,7 @@ agent-service/
 │   ├── knowledge/            shared by agent and ingestion
 │   │   ├── models.py           SourceDocument, Chunk, Persona
 │   │   ├── repository.py       documents, chunks, personas (schema "knowledge")
+│   │   ├── search.py           hybrid search: vectors + words + RRF, filtered by persona
 │   │   ├── embeddings.py       Embedder interface + local implementation (D22)
 │   │   ├── chunking.py
 │   │   └── redaction.py        secret detection and masking (HU15)
@@ -788,7 +789,9 @@ Ante la duda, `intent` es `question`: es preferible buscar y no encontrar que re
 
 **`retrieve`** — sin LLM. **Búsqueda híbrida** en los fragmentos de **esa persona** (HU3):
 1. Búsqueda vectorial: los 20 fragmentos más similares a `standalone_query`.
-2. Búsqueda por palabras: los 20 mejores por texto exacto (columna `tsv`, sección 3.2).
+2. Búsqueda por palabras: los 20 mejores por texto exacto (columna `tsv`, sección 3.2). Alcanza
+   con que aparezca **alguno** de los términos significativos de la pregunta (se descartan palabras
+   vacías en español e inglés); exigir todos casi nunca coincidiría con una pregunta en lenguaje natural.
 3. Se combinan con **Reciprocal Rank Fusion** (suma puntajes según la posición en cada lista) y se
    quedan los 8 mejores.
 

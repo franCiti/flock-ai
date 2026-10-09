@@ -63,3 +63,29 @@ class IngestionRun(_Record):
     started_at: datetime
     finished_at: datetime | None
     summary: dict[str, Any] | None
+
+
+class SearchHit(_Record):
+    """A fragment found by the hybrid search, with what is needed to cite it."""
+
+    chunk_id: int
+    persona_id: str
+    document_id: str
+    source_type: SourceType
+    title: str
+    url: str | None
+    path: str | None
+    section_hint: str | None
+    heading_path: str
+    content: str
+    similarity: float  # cosine similarity with the query: absolute, comparable across searches
+    score: float  # Reciprocal Rank Fusion: only orders the hits of one search
+
+
+class PersonaMatch(_Record):
+    """Another persona whose knowledge matches a question (candidate referral, spec HU2)."""
+
+    persona_id: str
+    display_name: str
+    similarity: float  # best similarity among its hits
+    hits: tuple[SearchHit, ...]  # best first
