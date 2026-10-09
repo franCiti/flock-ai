@@ -107,7 +107,7 @@
 - `.eml` y `.msg`, adjuntos como documentos hijos, un nivel de anidamiento.
 - **Hecho cuando:** los tests de `.eml` pasan; los de `.msg` están completos y **omitidos** hasta que exista la muestra.
 
-**[ ] T15 — Conector de carpetas**
+**[x] T15 — Conector de carpetas**
 - Spec: HU4 · Plan: 5.2, 5.3 · Depende de: T13
 - Interfaz `SourceConnector`, `FileStore`, `LocalFolderStore` y `FilesConnector`.
 - **Hecho cuando:** tests de altas, cambios, bajas y archivos ignorados.
