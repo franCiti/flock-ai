@@ -206,10 +206,14 @@
     Kafka real (contenedor `apache/kafka`, sin TLS) cubre pedido normal, dos apps y offsets.
     Verificado también `flock-agent` contra Docker Compose (mTLS) con el LLM falso.
 
-**[ ] T26 — Cliente de prueba `flock-ask`**
+**[x] T26 — Cliente de prueba `flock-ask`**
 - Spec: HU7 · Plan: 1.3 · Depende de: T25
 - Envía una pregunta con el certificado `cli` y muestra la respuesta en streaming, las citas y la derivación.
 - **Hecho cuando:** funciona contra el worker con LLM falso.
+- **Nota (2026-10-13):** `flock-ask --persona X [pregunta]` (sin pregunta: modo interactivo, una
+  conversación). Lee `agent.replies.cli` sin grupo y desde el final, así no mueve offsets ni muestra
+  respuestas viejas. Probado con tests de integración (Kafka de Testcontainers) y a mano contra Docker
+  Compose (mTLS) con `flock-agent` y `LLM_PROVIDER=fake`; instrucciones en `agent-service/README.md`.
 
 ### Despliegue y cierre
 

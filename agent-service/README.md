@@ -61,5 +61,30 @@ Aplica las migraciones pendientes, procesa las carpetas e imprime el resumen por
 
 Pendiente: ocultar secretos (T12) y leer correos (T14) están marcados como `TODO` en el código.
 
-Los comandos `flock-ingest worker`, `flock-agent`, `flock-ask` y `flock-eval` se implementan en las
-tareas T34, T25, T26 y T28.
+## Levantar el agente y preguntarle (`flock-agent` y `flock-ask`)
+
+Con el entorno de Docker Compose levantado y el conocimiento cargado. En una terminal, el Agent
+Worker con su certificado y el **LLM falso** (`LLM_PROVIDER=fake`: respuestas fijas, sin API key, D41):
+
+```powershell
+$certs = (Resolve-Path infra\certs\out\agent).Path
+$env:TLS_CERT_FILE = "$certs\agent.crt"; $env:TLS_KEY_FILE = "$certs\agent.key"; $env:TLS_CA_FILE = "$certs\ca.crt"
+$env:POSTGRES_USER = "agent"; $env:LLM_PROVIDER = "fake"
+cd agent-service; uv run flock-agent
+```
+
+En otra terminal, el cliente de prueba con el certificado `cli`:
+
+```powershell
+$certs = (Resolve-Path infra\certs\out\cli).Path
+$env:TLS_CERT_FILE = "$certs\cli.crt"; $env:TLS_KEY_FILE = "$certs\cli.key"; $env:TLS_CA_FILE = "$certs\ca.crt"
+$env:PYTHONIOENCODING = "utf-8"
+cd agent-service; uv run flock-ask --persona juan-plataforma "¿Cómo hago un rollback?"
+uv run flock-ask --persona juan-plataforma     # interactivo: una conversación, línea vacía para salir
+```
+
+Muestra la respuesta a medida que llega, sus fuentes, la persona sugerida y los tiempos. Salida:
+`0` respuesta, `1` el agente respondió con un error, `2` no hubo respuesta a tiempo.
+Con el modelo real (cierre de etapa) se quita `LLM_PROVIDER` y se definen `OPENROUTER_API_KEY` y `LLM_MODEL`.
+
+Los comandos `flock-ingest worker` y `flock-eval` se implementan en las tareas T34 y T28.

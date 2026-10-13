@@ -13,6 +13,7 @@ A reply is chosen by a `responder` that receives the messages sent to the model:
 """
 
 import asyncio
+import html
 import json
 import re
 from collections import deque
@@ -223,7 +224,8 @@ def development_reply(messages: Sequence[BaseMessage]) -> FakeReply:
     if is_prompt(GENERATE):
         if not documents:
             return "No encontré información sobre eso."
-        excerpt = " ".join(documents[0][1].split())[:_EXCERPT_CHARS]
+        # Fragments reach the prompt escaped (graph.answer.format_documents).
+        excerpt = " ".join(html.unescape(documents[0][1]).split())[:_EXCERPT_CHARS]
         return f"Según la documentación: {excerpt} [1]"
     if is_prompt(ADAPT_LANGUAGE):
         return _block(human, "message")
