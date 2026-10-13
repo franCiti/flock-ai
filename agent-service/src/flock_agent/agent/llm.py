@@ -5,6 +5,7 @@ short structured calls (`classify`, `grade`, `find_referral`, language adaptatio
 OpenAI-compatible models reached through OpenRouter's URL.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,7 +14,10 @@ from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
+from flock_agent.agent.fake_llm import development_model
 from flock_agent.common.settings import Settings
+
+log = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -54,7 +58,16 @@ def openrouter_chat_model(settings: Settings, model: str) -> ChatOpenAI:
 
 
 def create_models(settings: Settings) -> LlmModels:
-    """Main and fast models from LLM_MODEL and LLM_FAST_MODEL (defaults to the main one)."""
+    """Main and fast models from LLM_MODEL and LLM_FAST_MODEL (defaults to the main one).
+
+    With LLM_PROVIDER=fake both are the development fake model: the system runs end to end
+    without an API key (D41), with plausible but canned answers.
+    """
+    if settings.llm_provider == "fake":
+        log.warning("using the fake LLM (LLM_PROVIDER=fake): answers are not real")
+        return LlmModels(
+            main=development_model(), main_name="fake", fast=development_model(), fast_name="fake"
+        )
     main_name = settings.llm_model
     fast_name = settings.effective_fast_model
     if main_name is None or fast_name is None:

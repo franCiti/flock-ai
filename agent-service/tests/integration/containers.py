@@ -1,11 +1,13 @@
-"""Ephemeral PostgreSQL for tests (plan 8.1, marker integration_containers).
+"""Ephemeral PostgreSQL and Kafka for tests (plan 8.1, marker integration_containers).
 
 Same image as the Docker Compose stack and the same roles/schemas script
-(infra/postgres/initdb), so privileges match production. TLS is not involved: these tests
-cover logic on tables. Roles get a test password, since certificates are not used here.
+(infra/postgres/initdb), so privileges match production. TLS and ACLs are not involved: these
+tests cover logic on tables and messages (the Compose stack tests cover mTLS, T08). Roles get a
+test password, since certificates are not used here.
 """
 
 import os
+import socket
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -20,6 +22,8 @@ os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
 from testcontainers.community.postgres import (
     PostgresContainer,
 )
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 POSTGRES_IMAGE = "pgvector/pgvector:0.8.7-pg17"
@@ -70,3 +74,44 @@ def running_database() -> Iterator[TestDatabase]:
                     )
                 )
         yield database
+
+
+KAFKA_IMAGE = "apache/kafka:4.3.1"  # same image as the Docker Compose stack
+
+
+def _free_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port: int = probe.getsockname()[1]
+        return port
+
+
+@contextmanager
+def running_kafka() -> Iterator[str]:
+    """Single-node Kafka (KRaft) without TLS; yields its bootstrap address.
+
+    The broker advertises the host port it is published on, so the port is chosen up front
+    and mapped to the same number inside the container.
+    """
+    port = _free_port()
+    container = (
+        DockerContainer(KAFKA_IMAGE)
+        .with_bind_ports(port, port)
+        .with_env("KAFKA_NODE_ID", "1")
+        .with_env("KAFKA_PROCESS_ROLES", "broker,controller")
+        .with_env("KAFKA_LISTENERS", f"PLAINTEXT://:{port},CONTROLLER://:9093")
+        .with_env("KAFKA_ADVERTISED_LISTENERS", f"PLAINTEXT://localhost:{port}")
+        .with_env("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER")
+        .with_env(
+            "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+        )
+        .with_env("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@localhost:9093")
+        .with_env("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1")
+        .with_env("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1")
+        .with_env("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1")
+        .with_env("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0")
+        .with_env("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false")
+        .waiting_for(LogMessageWaitStrategy("Kafka Server started").with_startup_timeout(60))
+    )
+    with container:
+        yield f"localhost:{port}"

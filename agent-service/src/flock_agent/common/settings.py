@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     kafka_bootstrap_servers: str = "localhost:9093"
 
     # LLM (D08)
+    # 'fake' runs everything without an API key, with canned answers (development, D41)
+    llm_provider: Literal["openrouter", "fake"] = "openrouter"
     openrouter_api_key: SecretStr | None = None
     llm_model: str | None = None
     llm_fast_model: str | None = None
@@ -72,6 +74,8 @@ class Settings(BaseSettings):
     first_token_target: Duration = timedelta(seconds=10)
     max_question_chars: PositiveInt = 2000
     max_requests_per_minute: PositiveInt = 30
+    # Requests the Agent Worker answers at the same time (plan 4.1)
+    max_concurrent_requests: PositiveInt = 8
 
     # Retrieval (plan section 4.8)
     retrieval_candidates: PositiveInt = 20

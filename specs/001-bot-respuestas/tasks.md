@@ -185,12 +185,26 @@
   canario, la respuesta pasa a ser el error general con `outcome` `no_information`. Los checkpoints solo
   deserializan tipos propios habilitados (`checkpoint_serializer`).
 
-**[ ] T25 — Agent Worker**
+**[x] T25 — Agent Worker**
 - Spec: HU6, HU7, HU8, HU15 · Plan: 4.1, 4.7 · Depende de: T03, T24
 - Consumo de pedidos, validaciones del worker, `accepted` / `token` / `final` / `error`, tiempo
   límite, concurrencia por conversación, confirmación de offsets, auditoría (tabla y `agent.audit`).
 - **Hecho cuando:** tests de integración con LLM falso para un pedido normal, repetido, inválido,
   persona inexistente, pregunta larga, límite por app, tiempo agotado y dos apps a la vez.
+- **Nota (2026-10-13):**
+  - **`LLM_PROVIDER=fake`** (nuevo, plan 1.8): un LLM falso de desarrollo que responde según el prompt
+    (saludos → cortesía, "¿quién sos?" → presentación, el resto se responde con el primer fragmento).
+    Permite correr el worker, `flock-ask` y `flock-eval` sin API key (D41, T26–T28).
+  - **`MAX_CONCURRENT_REQUESTS`** (nuevo, `8`): pedidos atendidos a la vez; los de una conversación van
+    de a uno y en orden. Los offsets se confirman en orden por partición, al terminar cada pedido.
+  - El `requestId` se registra como procesado después de publicar la respuesta (también los rechazos).
+  - Los tokens se agrupan cada 100 ms y retienen los últimos caracteres: el canario nunca se publica.
+    Límite conocido: si el modelo vuelca el prompt, el texto anterior al canario sí puede salir como
+    tokens (el `final` lo reemplaza por el error general).
+  - Los mensajes de error van en español (con el LLM caído no se pueden adaptar al idioma).
+  - Tests: el procesamiento contra Postgres (Testcontainers) cubre todos los casos; el recorrido por
+    Kafka real (contenedor `apache/kafka`, sin TLS) cubre pedido normal, dos apps y offsets.
+    Verificado también `flock-agent` contra Docker Compose (mTLS) con el LLM falso.
 
 **[ ] T26 — Cliente de prueba `flock-ask`**
 - Spec: HU7 · Plan: 1.3 · Depende de: T25

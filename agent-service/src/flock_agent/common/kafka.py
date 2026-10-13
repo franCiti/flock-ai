@@ -61,3 +61,18 @@ def message_headers(schema: str) -> Headers:
 def encode_message(message: BaseModel) -> bytes:
     """Serialize a contract model with its wire (camelCase) field names."""
     return message.model_dump_json(by_alias=True, exclude_unset=True).encode()
+
+
+class KafkaPublisher:
+    """Publishes contract messages with their headers and waits for the broker's ack."""
+
+    def __init__(self, producer: AIOKafkaProducer) -> None:
+        self._producer = producer
+
+    async def publish(self, topic: str, key: str | None, message: BaseModel, schema: str) -> None:
+        await self._producer.send_and_wait(
+            topic,
+            value=encode_message(message),
+            key=None if key is None else key.encode(),
+            headers=message_headers(schema),
+        )
