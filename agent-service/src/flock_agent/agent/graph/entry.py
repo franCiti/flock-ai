@@ -18,6 +18,7 @@ from flock_agent.agent.graph.state import (
     Intent,
     Outcome,
     Turn,
+    add_flags,
 )
 from flock_agent.agent.guardrails import injection_signals
 from flock_agent.agent.llm import structured
@@ -72,7 +73,7 @@ async def screen_input(state: AgentState) -> AgentState:
     if not signals:
         return {}
     log.info("manipulation patterns in the question", extra={"signals": signals})
-    return {"flags": ["injection_suspected"]}
+    return {"flags": add_flags(state.get("flags", []), ["injection_suspected"])}
 
 
 # --- classify ---------------------------------------------------------------------------------
@@ -92,7 +93,7 @@ async def classify(state: AgentState, deps: Dependencies) -> AgentState:
         "standalone_query": result.standalone_query.strip() or state["question"],
     }
     if result.manipulation_attempt:
-        update["flags"] = ["injection_suspected"]
+        update["flags"] = add_flags(state.get("flags", []), ["injection_suspected"])
     return update
 
 

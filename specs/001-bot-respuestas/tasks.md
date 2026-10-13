@@ -174,10 +174,16 @@
   del `answer` (llega en el `final`, no como tokens). Si falla la confirmación de la derivación, no se
   sugiere a nadie en lugar de dar error. Sin fragmentos, `grade` da `none` sin llamar al LLM.
 
-**[ ] T24 — `finalize` y armado del grafo**
+**[x] T24 — `finalize` y armado del grafo**
 - Spec: HU1, HU15.6 · Plan: 4.2–4.5 · Depende de: T19, T23
 - Citas, saneamiento de Markdown, canario, historial y checkpointer.
 - **Hecho cuando:** un test por cada fila de la tabla 4.4 (cada `outcome`) recorre el grafo completo con LLM falso.
+- **Nota (2026-10-13):** el checkpointer guarda el estado de cada conversación, pero solo `history`
+  pasa de una pregunta a otra: cada pregunta entra con `turn_input`, que reinicia el resto (por eso las
+  `flags` no usan un reducer de LangGraph). Las marcas `[n]` se renumeran por orden de aparición
+  (`[k]` = `citations[k-1]`); las URL ajenas a las citas quedan como código, sin enlace. Si se filtra el
+  canario, la respuesta pasa a ser el error general con `outcome` `no_information`. Los checkpoints solo
+  deserializan tipos propios habilitados (`checkpoint_serializer`).
 
 **[ ] T25 — Agent Worker**
 - Spec: HU6, HU7, HU8, HU15 · Plan: 4.1, 4.7 · Depende de: T03, T24

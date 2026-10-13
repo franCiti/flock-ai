@@ -1,10 +1,13 @@
 """State of the agent's graph (plan 4.2).
 
 Every node receives the whole state and returns only the fields it changes. All fields are
-optional for the type checker; the worker sets the input fields before running the graph.
+optional for the type checker.
+
+The checkpointer keeps the state of each conversation between questions, but only `history`
+must carry over: every question starts from `turn_input`, which resets the other fields.
 """
 
-from typing import Annotated, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from flock_agent.knowledge.models import SearchHit
 
@@ -41,8 +44,23 @@ class Referral(TypedDict):
     display_name: str
 
 
+class CitationRef(TypedDict):
+    """A source of the answer, as the `citations` of the final reply (plan 2.4)."""
+
+    document_id: str
+    title: str
+    url: str | None
+    path: str | None
+    section: str | None
+    source_type: str
+
+
 def add_flags(current: list[Flag], new: list[Flag]) -> list[Flag]:
-    """Flags accumulate across nodes, without repeats and in a stable order."""
+    """Flags accumulate across the nodes of one question, without repeats and in a stable order.
+
+    Nodes merge them themselves (they run one after the other) instead of a LangGraph reducer:
+    a reducer would also merge them across questions, and they belong to one question only.
+    """
     return sorted(set(current) | set(new))
 
 
@@ -61,7 +79,31 @@ class AgentState(TypedDict, total=False):
     verdict: Verdict
     missing: str
     referral: Referral | None
-    # Answer
+    # Answer (finalize)
     answer: str
     outcome: Outcome
-    flags: Annotated[list[Flag], add_flags]
+    citations: list[CitationRef]
+    flags: list[Flag]
+
+
+def turn_input(question: str, persona: PersonaRef, canary: str) -> AgentState:
+    """Input of the graph for one question: the question plus every per-question field reset.
+
+    `history` is left out, so the conversation's history (from the checkpointer) is kept.
+    """
+    return {
+        "question": question,
+        "persona": persona,
+        "canary": canary,
+        "language": MESSAGES_LANGUAGE,
+        "intent": "question",
+        "standalone_query": question,
+        "hits": [],
+        "verdict": "none",
+        "missing": "",
+        "referral": None,
+        "answer": "",
+        "outcome": "no_information",
+        "citations": [],
+        "flags": [],
+    }
