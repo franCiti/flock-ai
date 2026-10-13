@@ -4,6 +4,8 @@ import hashlib
 import math
 from collections.abc import Sequence
 
+from flock_agent.knowledge.models import PersonaMatch, SearchHit
+
 
 class FakeEmbedder:
     """Deterministic embedder: the same text always gives the same unit vector. No model needed."""
@@ -31,3 +33,26 @@ class FakeEmbedder:
 
     def embed_query(self, text: str) -> list[float]:
         return self._vector(text)
+
+
+class FakeSearch:
+    """Hybrid search with predefined results; records every call."""
+
+    def __init__(
+        self,
+        hits: Sequence[SearchHit] = (),
+        matches: Sequence[PersonaMatch] = (),
+    ) -> None:
+        self.hits = list(hits)
+        self.matches = list(matches)
+        self.calls: list[tuple[str, str, str, float | None]] = []
+
+    async def search(self, persona_id: str, query: str) -> list[SearchHit]:
+        self.calls.append(("search", persona_id, query, None))
+        return [hit for hit in self.hits if hit.persona_id == persona_id]
+
+    async def search_other_personas(
+        self, persona_id: str, query: str, *, min_similarity: float | None = None
+    ) -> list[PersonaMatch]:
+        self.calls.append(("search_other_personas", persona_id, query, min_similarity))
+        return [match for match in self.matches if match.persona_id != persona_id]

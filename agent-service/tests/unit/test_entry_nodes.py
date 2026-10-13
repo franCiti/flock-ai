@@ -15,13 +15,20 @@ from flock_agent.agent.graph.entry import (
 )
 from flock_agent.agent.graph.state import AgentState, Intent, Turn, add_flags
 from flock_agent.agent.messages import Messages
+from tests.fakes import FakeSearch
 
 MESSAGES = Messages()
 JUAN = {"id": "juan-plataforma", "display_name": "Juan Pérez"}
 
 
 def deps(model: FakeChatModel, *, history_turns: int = 6) -> Dependencies:
-    return Dependencies(fast_model=model, messages=MESSAGES, history_turns=history_turns)
+    return Dependencies(
+        main_model=FakeChatModel.scripted([]),
+        fast_model=model,
+        search=FakeSearch(),
+        messages=MESSAGES,
+        history_turns=history_turns,
+    )
 
 
 def state(question: str = "¿Cómo hago un deploy?", **fields: Any) -> AgentState:

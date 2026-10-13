@@ -165,10 +165,14 @@
   (`graph/deps.py`); T24 los conecta al grafo. Si falla la adaptación de idioma de un mensaje fijo,
   se envía en español en lugar de un error. Un idioma que el clasificador no informa bien se toma como `es`.
 
-**[ ] T23 — Nodos de respuesta**
+**[x] T23 — Nodos de respuesta**
 - Spec: HU1, HU2 · Plan: 4.3 · Depende de: T21, T22
 - `retrieve`, `grade`, `generate` (streaming) y `find_referral`.
 - **Hecho cuando:** tests con LLM falso de respuesta completa, parcial, sin información y derivación (sin filtrar contenido de la otra persona).
+- **Nota (2026-10-13):** `generate` marca su llamada al LLM con el tag `answer_stream`: el worker (T25)
+  publica solo esos tokens. La sugerencia de derivación de una respuesta parcial se agrega al final
+  del `answer` (llega en el `final`, no como tokens). Si falla la confirmación de la derivación, no se
+  sugiere a nadie en lugar de dar error. Sin fragmentos, `grade` da `none` sin llamar al LLM.
 
 **[ ] T24 — `finalize` y armado del grafo**
 - Spec: HU1, HU15.6 · Plan: 4.2–4.5 · Depende de: T19, T23
