@@ -108,10 +108,17 @@
 - Detección de texto por contenido, HTML/XML, PDF (y escaneados), docx con títulos y tablas, límite de tamaño.
 - **Hecho cuando:** tests con una muestra por formato en `tests/fixtures/`.
 
-**[ ] T14 — Parsers de correo y adjuntos**
+**[x] T14 — Parsers de correo y adjuntos**
 - Spec: HU4.6 · Plan: 5.3, 8.1 · Depende de: T13
 - `.eml` y `.msg`, adjuntos como documentos hijos, un nivel de anidamiento.
 - **Hecho cuando:** los tests de `.eml` pasan; los de `.msg` están completos y **omitidos** hasta que exista la muestra.
+- **Nota (2026-10-14):** el correo se indexa como `email` con sus campos (asunto, de, para, cc, fecha,
+  nombres de adjuntos) y el cuerpo (texto, o HTML convertido). Cada adjunto soportado es un documento
+  `email_attachment` con `parent_id`; los no soportados se informan en el resumen como
+  `<ruta>#attachment/<nombre>`. Dos adjuntos con el mismo nombre se distinguen como `nombre (2)`.
+  Si un correo cambia y pierde un adjunto, el pipeline lo borra. `PARSERS_VERSION` pasa a 2: la
+  próxima ingesta relee todo y toma los correos que antes se omitían. `extract-msg` tiene licencia
+  **GPL** (estaba en el plan 1.3); a revisar si el servicio se distribuye fuera de la empresa.
 
 **[x] T15 — Conector de carpetas**
 - Spec: HU4 · Plan: 5.2, 5.3 · Depende de: T13

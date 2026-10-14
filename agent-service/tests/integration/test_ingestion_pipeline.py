@@ -1,7 +1,10 @@
-"""Knowledge update end to end over examples/knowledge (task T18, plan sections 5.1 and 5.5)."""
+"""Knowledge update end to end over examples/knowledge (tasks T18, T12, T14; plan 5.1, 5.5)."""
 
+import os
 import shutil
 import uuid
+from email import policy
+from email.parser import BytesParser
 from pathlib import Path
 
 import pytest
@@ -13,6 +16,7 @@ from tests.fakes import FakeEmbedder
 pytestmark = pytest.mark.integration_containers
 
 EXAMPLES = Path(__file__).resolve().parents[3] / "examples" / "knowledge"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "files"
 
 
 @pytest.fixture
@@ -72,9 +76,9 @@ async def test_the_first_update_indexes_every_example(
     juan = persona(result, "juan-plataforma")
     ana = persona(result, "ana-datos")
     assert (juan.display_name, ana.display_name) == ("Juan Pérez", "Ana Gómez")
-    assert juan.added == 11  # 12 files; the email waits for T14
+    assert juan.added == 12  # 12 files, the email included (it has no attachments)
     assert ana.added == 10
-    assert [item.path for item in juan.skipped] == ["correo/renovacion-certificado-legacy.eml"]
+    assert juan.skipped == ana.skipped == []
     assert juan.source_errors == ana.source_errors == []
 
     documents = await knowledge.document_ids("juan-plataforma", None)
@@ -257,3 +261,43 @@ async def test_secrets_never_reach_the_knowledge_base(
         "file:ana-datos:pipelines/conexion-warehouse.md",
         "file:juan-plataforma:procedimientos/acceso-bastion.md",
     ]
+
+
+async def test_emails_and_their_attachments(
+    pipeline: IngestionPipeline, knowledge: KnowledgeRepository, root: Path
+) -> None:
+    """An email is indexed with its attachments; an attachment that disappears from the email
+    leaves the knowledge base; deleting the email deletes its attachments (task T14)."""
+    mail = root / "juan-plataforma" / "correo" / "accesos.eml"
+    shutil.copy(FIXTURES / "mail.eml", mail)
+    email_id = "file:juan-plataforma:correo/accesos.eml"
+
+    result = await run(pipeline, {"juan-plataforma"})
+    juan = persona(result, "juan-plataforma")
+    assert juan.added == 12 + 1 + 4  # the examples, the new email and its four attachments
+    assert [item.path for item in juan.skipped] == ["correo/accesos.eml#attachment/logo.png"]
+    assert await knowledge.child_ids(email_id) == {
+        f"{email_id}#attachment/checklist.txt",
+        f"{email_id}#attachment/manual.docx",
+        f"{email_id}#attachment/checklist (2).txt",
+        f"{email_id}#attachment/Ventana de mantenimiento.eml",
+    }
+
+    # The same email without attachments.
+    message = BytesParser(policy=policy.default).parsebytes(mail.read_bytes())
+    message.clear_content()
+    message.set_content("Te mando los accesos en otro correo.")
+    mail.write_bytes(bytes(message))
+    os.utime(mail, ns=(mail.stat().st_atime_ns, mail.stat().st_mtime_ns + 1_000_000_000))
+    second = persona(await run(pipeline, {"juan-plataforma"}), "juan-plataforma")
+    assert second.modified == 1
+    assert second.deleted == 4
+    assert await knowledge.child_ids(email_id) == set()
+
+    mail.unlink()
+    shutil.copy(FIXTURES / "mail.eml", root / "juan-plataforma" / "correo" / "otro.eml")
+    await run(pipeline, {"juan-plataforma"})
+    (root / "juan-plataforma" / "correo" / "otro.eml").unlink()
+    third = persona(await run(pipeline, {"juan-plataforma"}), "juan-plataforma")
+    assert third.deleted == 1  # the email; its attachments go in cascade
+    assert await knowledge.child_ids("file:juan-plataforma:correo/otro.eml") == set()

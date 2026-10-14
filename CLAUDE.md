@@ -55,8 +55,9 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
 
 **Desvíos acordados que hay que tener presentes** (detalle en la nota de T18 en `tasks.md`):
 
-- **T14 (correos) quedó pendiente** a pedido; la T18 se hizo antes. Es un punto de extensión
-  marcado `TODO(T14)` (los `.eml`/`.msg` se omiten). La T12 (ocultar secretos) ya está hecha.
+- **T12 y T14 se hicieron después de la T18** (a pedido); ya están completas. Los tests de `.msg`
+  quedan **omitidos** hasta que alguien agregue `agent-service/tests/fixtures/files/sample.msg`
+  guardado desde Outlook (`extract-msg` lee ese formato pero no lo crea).
 - Tests de integración (plan 8.1): `integration_stack` contra Docker Compose (mTLS real) y
   `integration_containers` con Testcontainers (lógica sobre tablas).
 - **T40 (front) se hizo antes que T31 y T32** a pedido. El login usa tipos escritos a mano

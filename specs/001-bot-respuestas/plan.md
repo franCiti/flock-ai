@@ -1003,7 +1003,7 @@ temporales de Office (`~$algo.docx`).
 | Correo estándar | `.eml` | Módulo `email` de Python, con los mismos campos |
 
 - **Adjuntos de correos** (HU4.6): cada adjunto de un formato soportado es un documento hijo con
-  `parent_id` = el correo, id `<id del correo>#attachment/<nombre>` y título "adjunto de *asunto*".
+  `parent_id` = el correo, id `<id del correo>#attachment/<nombre>` y título "*nombre* (adjunto de *asunto*)".
   Un correo adjunto dentro de otro se procesa, pero no se sigue más allá de ese nivel.
 - **Tamaño máximo por archivo:** `MAX_FILE_MB` (por defecto, 20 MB); los más grandes se omiten y se informan.
 - **Citas de archivos locales:** no tienen una URL que el navegador pueda abrir, así que se citan

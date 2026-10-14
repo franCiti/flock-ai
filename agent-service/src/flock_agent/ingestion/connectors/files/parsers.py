@@ -2,42 +2,66 @@
 
 Parsers do not know where a file comes from (local folder, SharePoint): they get its name and
 bytes. The result says which chunker fits it: "markdown" keeps the headings, "plain" does not.
+
+Emails (.eml, .msg) also return their attachments, each one parsed like any other file; an
+email attached to another email is parsed too, but its own attachments are not (one level).
 """
 
 import io
 import re
 import warnings
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from email import policy as email_policy
+from email.message import EmailMessage
+from email.parser import BytesParser
 from pathlib import PurePosixPath
-from typing import Literal
+from typing import Any, Literal
 
 import docx
+import extract_msg
 from bs4 import BeautifulSoup, Tag, XMLParsedAsHTMLWarning
 from charset_normalizer import from_bytes
 from docx.document import Document as DocxDocument
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from extract_msg.enums import AttachmentType
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
 ContentFormat = Literal["markdown", "plain"]
 
 # Bump when parsing changes: connectors re-read every file when their cursor has another version.
-PARSERS_VERSION = 1
+# 2: emails and their attachments (T14).
+PARSERS_VERSION = 2
 
 _SNIFF_BYTES = 64 * 1024
 _MIN_TEXT_CHARS_PER_PDF_PAGE = 20
 _MARKDOWN_SUFFIXES = {".md", ".markdown"}
 _HTML_SUFFIXES = {".html", ".htm", ".xhtml"}
 _XML_SUFFIXES = {".xml"}
-_EMAIL_SUFFIXES = {".eml", ".msg"}
 
 
 @dataclass(frozen=True)
 class ParsedFile:
     text: str
     content_format: ContentFormat
-    title: str | None = None  # from the document itself (HTML <title>, Word properties)
+    title: str | None = None  # from the document itself (HTML <title>, Word properties, subject)
+    is_email: bool = False
+    attachments: tuple["ParsedAttachment", ...] = ()
+    skipped_attachments: tuple["SkippedAttachment", ...] = ()
+
+
+@dataclass(frozen=True)
+class ParsedAttachment:
+    name: str  # unique within its email
+    parsed: ParsedFile
+
+
+@dataclass(frozen=True)
+class SkippedAttachment:
+    name: str
+    reason: str
 
 
 class SkipFileError(Exception):
@@ -48,8 +72,13 @@ class SkipFileError(Exception):
         self.reason = reason
 
 
-def parse_file(name: str, data: bytes, *, max_bytes: int) -> ParsedFile:
-    """Extract the text of a file, or raise SkipFileError saying why it is not indexed."""
+def parse_file(
+    name: str, data: bytes, *, max_bytes: int, follow_attachments: bool = True
+) -> ParsedFile:
+    """Extract the text of a file, or raise SkipFileError saying why it is not indexed.
+
+    `follow_attachments=False` parses an email without its attachments (an attached email).
+    """
     if len(data) > max_bytes:
         raise SkipFileError(f"larger than the {max_bytes // (1024 * 1024)} MB limit")
     suffix = PurePosixPath(name).suffix.lower()
@@ -57,8 +86,10 @@ def parse_file(name: str, data: bytes, *, max_bytes: int) -> ParsedFile:
         parsed = _parse_pdf(data)
     elif suffix == ".docx":
         parsed = _parse_docx(data)
-    elif suffix in _EMAIL_SUFFIXES:
-        raise SkipFileError("email files are not supported yet")  # T14
+    elif suffix == ".eml":
+        parsed = _parse_eml(data, max_bytes=max_bytes, follow_attachments=follow_attachments)
+    elif suffix == ".msg":
+        parsed = _parse_msg(data, max_bytes=max_bytes, follow_attachments=follow_attachments)
     elif suffix in _HTML_SUFFIXES:
         parsed = _parse_html(_decode_text(data))
     elif suffix in _XML_SUFFIXES:
@@ -207,3 +238,200 @@ def _docx_table(table: Table) -> str:
         if any(cells):
             rows.append(" | ".join(cells))
     return "\n".join(rows)
+
+
+# --- Email ----------------------------------------------------------------------------------
+
+
+def _email_text(
+    *,
+    subject: str,
+    sender: str,
+    to: str,
+    cc: str,
+    date: str,
+    body: str,
+    attachment_names: Sequence[str],
+) -> str:
+    """Header fields first (who wrote it, when and about what), then the body."""
+    fields = [
+        ("Subject", subject),
+        ("From", sender),
+        ("To", to),
+        ("Cc", cc),
+        ("Date", date),
+        ("Attachments", ", ".join(attachment_names)),
+    ]
+    header = "\n".join(f"{label}: {value}" for label, value in fields if value.strip())
+    return _normalize(f"{header}\n\n{body}")
+
+
+def _body_text(plain: str | None, html: str | None) -> str:
+    if plain and plain.strip():
+        return _normalize(plain)
+    if html and html.strip():
+        return _parse_html(html).text
+    return ""
+
+
+def _unique_name(name: str, used: set[str]) -> str:
+    """Two attachments with the same name get "name (2)", "name (3)"..."""
+    candidate, number = name, 1
+    while candidate in used:
+        number += 1
+        path = PurePosixPath(name)
+        candidate = f"{path.stem} ({number}){path.suffix}"
+    used.add(candidate)
+    return candidate
+
+
+class _Attachments:
+    """Collects the parsed and skipped attachments of one email."""
+
+    def __init__(self, *, max_bytes: int, follow: bool) -> None:
+        self._max_bytes = max_bytes
+        self._follow = follow
+        self._used: set[str] = set()
+        self.names: list[str] = []
+        self.parsed: list[ParsedAttachment] = []
+        self.skipped: list[SkippedAttachment] = []
+
+    def add(self, name: str, parse: Callable[[], ParsedFile]) -> None:
+        unique = _unique_name(name, self._used)
+        self.names.append(unique)
+        if not self._follow:
+            return  # an attached email: its attachments are only listed
+        try:
+            self.parsed.append(ParsedAttachment(unique, parse()))
+        except SkipFileError as skip:
+            self.skipped.append(SkippedAttachment(unique, skip.reason))
+
+    def add_file(self, name: str, data: bytes) -> None:
+        self.add(
+            name,
+            lambda: parse_file(name, data, max_bytes=self._max_bytes, follow_attachments=False),
+        )
+
+    def result(self, text: str, subject: str) -> ParsedFile:
+        return ParsedFile(
+            text,
+            "plain",
+            subject or None,
+            is_email=True,
+            attachments=tuple(self.parsed),
+            skipped_attachments=tuple(self.skipped),
+        )
+
+
+def _parse_eml(data: bytes, *, max_bytes: int, follow_attachments: bool) -> ParsedFile:
+    message = BytesParser(policy=email_policy.default).parsebytes(data)
+    if not isinstance(message, EmailMessage):
+        raise SkipFileError("unreadable email")
+    return _eml_message(message, max_bytes=max_bytes, follow_attachments=follow_attachments)
+
+
+def _eml_message(message: EmailMessage, *, max_bytes: int, follow_attachments: bool) -> ParsedFile:
+    def header(name: str) -> str:
+        return " ".join(str(message.get(name, "")).split())
+
+    plain = message.get_body(preferencelist=("plain",))
+    html = message.get_body(preferencelist=("html",))
+    body = _body_text(
+        _part_text(plain) if isinstance(plain, EmailMessage) else None,
+        _part_text(html) if isinstance(html, EmailMessage) else None,
+    )
+
+    attachments = _Attachments(max_bytes=max_bytes, follow=follow_attachments)
+    for part in message.iter_attachments():
+        if not isinstance(part, EmailMessage):
+            continue
+        if part.get_content_type() == "message/rfc822":
+            payload = part.get_payload()
+            inner = payload[0] if isinstance(payload, list) and payload else None
+            if isinstance(inner, EmailMessage):
+                attachments.add(
+                    part.get_filename() or f"{inner.get('Subject') or 'email'}.eml",
+                    _attached_eml(inner, max_bytes),
+                )
+            continue
+        name = part.get_filename()
+        data = part.get_payload(decode=True)
+        if name and isinstance(data, bytes):  # parts without a name are inline images
+            attachments.add_file(name, data)
+
+    subject = header("Subject")
+    text = _email_text(
+        subject=subject,
+        sender=header("From"),
+        to=header("To"),
+        cc=header("Cc"),
+        date=header("Date"),
+        body=body,
+        attachment_names=attachments.names,
+    )
+    return attachments.result(text, subject)
+
+
+def _attached_eml(message: EmailMessage, max_bytes: int) -> Callable[[], ParsedFile]:
+    return lambda: _eml_message(message, max_bytes=max_bytes, follow_attachments=False)
+
+
+def _part_text(part: EmailMessage) -> str | None:
+    try:
+        content = part.get_content()
+    except (LookupError, ValueError):  # unknown charset or broken encoding
+        payload = part.get_payload(decode=True)
+        return payload.decode("utf-8", "replace") if isinstance(payload, bytes) else None
+    return content if isinstance(content, str) else None
+
+
+def _parse_msg(data: bytes, *, max_bytes: int, follow_attachments: bool) -> ParsedFile:
+    try:
+        message = extract_msg.openMsg(data)
+    except Exception as error:  # extract-msg raises many unrelated types for broken files
+        raise SkipFileError(f"unreadable Outlook message ({type(error).__name__})") from error
+    try:
+        return _msg_message(message, max_bytes=max_bytes, follow_attachments=follow_attachments)
+    finally:
+        message.close()
+
+
+def _msg_message(message: Any, *, max_bytes: int, follow_attachments: bool) -> ParsedFile:
+    """An Outlook message (extract-msg ships no type information: attributes are read
+    defensively)."""
+
+    def field(name: str) -> str:
+        value = getattr(message, name, None)
+        return "" if value is None else " ".join(str(value).split())
+
+    html = getattr(message, "htmlBody", None)
+    body = _body_text(
+        getattr(message, "body", None),
+        html.decode("utf-8", "replace") if isinstance(html, bytes) else html,
+    )
+
+    attachments = _Attachments(max_bytes=max_bytes, follow=follow_attachments)
+    for attachment in getattr(message, "attachments", []):
+        name = attachment.longFilename or attachment.shortFilename or attachment.name
+        data = attachment.data
+        if attachment.type == AttachmentType.MSG:
+            inner_name = name or f"{getattr(data, 'subject', None) or 'email'}.msg"
+            attachments.add(inner_name, _attached_msg(data, max_bytes))
+        elif attachment.type == AttachmentType.DATA and name and isinstance(data, bytes):
+            attachments.add_file(name, data)
+
+    subject = field("subject")
+    text = _email_text(
+        subject=subject,
+        sender=field("sender"),
+        to=field("to"),
+        cc=field("cc"),
+        date=field("date"),
+        body=body,
+        attachment_names=attachments.names,
+    )
+    return attachments.result(text, subject)
+
+
+def _attached_msg(message: Any, max_bytes: int) -> Callable[[], ParsedFile]:
+    return lambda: _msg_message(message, max_bytes=max_bytes, follow_attachments=False)

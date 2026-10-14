@@ -151,8 +151,3 @@ def test_files_over_the_size_limit_are_skipped_before_parsing() -> None:
     reason = skip_reason("huge.txt", b"x" * (2 * 1024 * 1024 + 1), max_bytes=2 * 1024 * 1024)
 
     assert reason == "larger than the 2 MB limit"
-
-
-@pytest.mark.parametrize("name", ["mail.eml", "mail.msg"])
-def test_email_files_wait_for_their_parser(name: str) -> None:
-    assert skip_reason(name, b"From: ana@example.com") == "email files are not supported yet"

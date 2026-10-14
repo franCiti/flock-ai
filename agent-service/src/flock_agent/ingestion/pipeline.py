@@ -1,7 +1,6 @@
 """Knowledge update: persona folders -> documents -> chunks -> embeddings (plan sections 5.1, 5.5).
 
 Pending pieces, kept as explicit extension points so the pipeline runs end to end:
-- TODO(T14): .eml/.msg files are skipped by the parsers ("email files are not supported yet").
 - TODO(T47+): external sources (Jira, Confluence, SharePoint) arrive in stage 3.
 """
 
@@ -205,9 +204,15 @@ class IngestionPipeline:
         state = await self._repository.get_sync_state(persona.id, connector.source_key)
         try:
             plan = await connector.sync(state.cursor if state else None)
+            attachments: dict[str, set[str]] = {}  # email id -> ids of its current attachments
             async for document in plan.upserts:
                 await self._index(document, result)
+                if document.source_type == "email":
+                    attachments.setdefault(document.id, set())
+                elif document.parent_id is not None:
+                    attachments.setdefault(document.parent_id, set()).add(document.id)
             result.deleted += await self._repository.delete_documents(plan.deleted_ids)
+            result.deleted += await self._delete_removed_attachments(attachments)
             result.skipped.extend(plan.skipped)
             # Saved only now: if anything above fails, the next update starts from the old cursor.
             await self._repository.save_sync_state(
@@ -218,6 +223,13 @@ class IngestionPipeline:
             log.exception("source failed", extra={"persona": persona.id, "source": "folder"})
             result.source_errors.append((connector.source_key, str(error)))
         return result
+
+    async def _delete_removed_attachments(self, current: dict[str, set[str]]) -> int:
+        """Attachments that are no longer in their (re-read) email; returns how many."""
+        removed: set[str] = set()
+        for email_id, attachment_ids in current.items():
+            removed |= await self._repository.child_ids(email_id) - attachment_ids
+        return await self._repository.delete_documents(removed)
 
     async def _remove_vanished_personas(self, result: RunResult, present: set[str]) -> None:
         for persona in await self._repository.list_personas():

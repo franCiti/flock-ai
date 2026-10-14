@@ -154,6 +154,14 @@ class KnowledgeRepository:
             )
             return {str(row[0]) for row in await cursor.fetchall()}
 
+    async def child_ids(self, parent_id: str) -> set[str]:
+        """Ids of the documents attached to `parent_id` (an email's attachments)."""
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "SELECT id FROM document WHERE parent_id = %s", (parent_id,)
+            )
+            return {str(row[0]) for row in await cursor.fetchall()}
+
     async def delete_documents(self, document_ids: Iterable[str]) -> int:
         """Delete documents (their chunks and attachments go in cascade); returns how many."""
         ids = list(document_ids)

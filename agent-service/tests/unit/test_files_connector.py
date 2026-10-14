@@ -110,6 +110,35 @@ async def test_unsupported_files_are_skipped_with_their_reason(folder: Path) -> 
     }
 
 
+async def test_an_email_and_its_attachments(folder: Path) -> None:
+    (folder / "correo").mkdir()
+    shutil.copy(FIXTURES / "mail.eml", folder / "correo" / "accesos.eml")
+
+    plan, documents = await run(folder)
+
+    email_id = "file:juan-plataforma:correo/accesos.eml"
+    emails = [document for document in documents if document.path == "correo/accesos.eml"]
+    email, *attachments = emails
+    assert email.id == email_id
+    assert email.source_type == "email"
+    assert email.parent_id is None
+    assert email.title == "Accesos para el nuevo ingreso"
+    assert [attachment.id for attachment in attachments] == [
+        f"{email_id}#attachment/checklist.txt",
+        f"{email_id}#attachment/manual.docx",
+        f"{email_id}#attachment/checklist (2).txt",
+        f"{email_id}#attachment/Ventana de mantenimiento.eml",
+    ]
+    for attachment in attachments:
+        assert attachment.source_type == "email_attachment"
+        assert attachment.parent_id == email_id
+        assert attachment.path == "correo/accesos.eml"
+    assert attachments[0].title == "checklist.txt (adjunto de Accesos para el nuevo ingreso)"
+    assert [(item.path, item.reason) for item in plan.skipped] == [
+        ("correo/accesos.eml#attachment/logo.png", "binary file")
+    ]
+
+
 async def test_a_missing_folder_has_no_documents(tmp_path: Path) -> None:
     plan, documents = await run(tmp_path / "does-not-exist")
 

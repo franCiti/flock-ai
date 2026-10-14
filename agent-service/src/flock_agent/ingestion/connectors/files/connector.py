@@ -20,6 +20,11 @@ log = logging.getLogger(__name__)
 FOLDER_SOURCE_KEY = "folder"
 
 
+def attachment_id(email_id: str, name: str) -> str:
+    """Id of an email attachment: `<id of the email>#attachment/<name>` (plan 5.3)."""
+    return f"{email_id}#attachment/{name}"
+
+
 class FilesConnector:
     """Turns the changes of a FileStore into SourceDocuments.
 
@@ -84,10 +89,10 @@ class FilesConnector:
                 skipped.append(SkippedItem(entry.path, f"could not be read ({error})"))
                 next_cursor["store"] = self._store.forget(next_cursor["store"], entry.path)
                 continue
-            yield SourceDocument(
+            document = SourceDocument(
                 id=self.document_id(entry.path),
                 persona_id=self._persona_id,
-                source_type=self._source_type,
+                source_type="email" if parsed.is_email else self._source_type,
                 source_id=self._source_id,
                 title=parsed.title or PurePosixPath(entry.path).stem,
                 url=entry.url,
@@ -95,4 +100,24 @@ class FilesConnector:
                 content=parsed.text,
                 content_format=parsed.content_format,
                 source_updated_at=entry.modified_at,
+            )
+            yield document
+            # Attachments come right after their email: they reference it (spec HU4.6).
+            for attachment in parsed.attachments:
+                yield SourceDocument(
+                    id=attachment_id(document.id, attachment.name),
+                    persona_id=self._persona_id,
+                    source_type="email_attachment",
+                    source_id=self._source_id,
+                    parent_id=document.id,
+                    title=f"{attachment.name} (adjunto de {document.title})",
+                    url=entry.url,
+                    path=entry.path,
+                    content=attachment.parsed.text,
+                    content_format=attachment.parsed.content_format,
+                    source_updated_at=entry.modified_at,
+                )
+            skipped.extend(
+                SkippedItem(f"{entry.path}#attachment/{item.name}", item.reason)
+                for item in parsed.skipped_attachments
             )

@@ -1,0 +1,10 @@
+From: Monitoreo <alertas@example.com>
+To: Juan =?utf-8?q?P=C3=A9rez?= <juan.perez@example.com>
+Subject: Alerta: disco al 90 %
+Date: Wed, 18 Feb 2026 03:00:00 -0300
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><h1>Alerta</h1><p>El disco de <b>db-01</b> est=C3=A1 al 90 %.</p>=
+</body></html>

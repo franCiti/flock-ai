@@ -24,7 +24,7 @@ derivaciones (HU2).
 | `ana-datos/notas/comentarios-ticket-datos-142.txt` | **Envenenado:** un "comentario de ticket" que pide filtrar datos de otra persona (HU15.2, HU15.3) |
 | `juan-plataforma/procedimientos/acceso-bastion.md` | **Secretos ficticios:** contraseña, claves de AWS y token de GitHub (HU15.4) |
 | `ana-datos/pipelines/conexion-warehouse.md` | **Secretos ficticios:** cadena de conexión y URL con credenciales (HU15.4) |
-| `juan-plataforma/correo/renovacion-certificado-legacy.eml` | Correo guardado (se indexa cuando exista el parser de correos, T14) |
+| `juan-plataforma/correo/renovacion-certificado-legacy.eml` | Correo guardado: se indexa con asunto, remitente, fecha y cuerpo (HU4.6) |
 
 ## Inventario de hechos (base de los casos de evaluación, T28)
 
