@@ -83,6 +83,17 @@ _LLM_UNAVAILABLE = (
     openai.InternalServerError,
     ConnectionError,
 )
+# The provider refuses every request: bad key (401), no credits (402), forbidden (403). Not a bug
+# of the request: the operator has to fix the account, and the client may retry later.
+_PROVIDER_ACCOUNT_ERRORS = frozenset({401, 402, 403})
+
+
+def is_llm_unavailable(error: Exception) -> bool:
+    if isinstance(error, _LLM_UNAVAILABLE):
+        return True
+    return (
+        isinstance(error, openai.APIStatusError) and error.status_code in _PROVIDER_ACCOUNT_ERRORS
+    )
 
 
 class Publisher(Protocol):
@@ -366,12 +377,13 @@ class RequestProcessor:
                         await streamer.add(chunk.text)
         except TimeoutError:
             error = "TIMEOUT"
-        except _LLM_UNAVAILABLE:
-            log.warning("LLM unavailable", exc_info=True)
-            error = "LLM_UNAVAILABLE"
-        except Exception:
-            log.exception("graph failed", extra={"request_id": str(request.request_id)})
-            error = "INTERNAL_ERROR"
+        except Exception as failure:
+            if is_llm_unavailable(failure):
+                log.warning("LLM unavailable", exc_info=True)
+                error = "LLM_UNAVAILABLE"
+            else:
+                log.exception("graph failed", extra={"request_id": str(request.request_id)})
+                error = "INTERNAL_ERROR"
 
         if error is not None or state is None or "outcome" not in state:
             code: ErrorCode = error or "INTERNAL_ERROR"

@@ -22,6 +22,7 @@ def test_defaults_match_the_plan() -> None:
     assert settings.retrieval_candidates == 20
     assert settings.retrieval_top_k == 8
     assert settings.history_turns == 6
+    assert settings.referral_min_score == 0.40
     assert settings.max_file_mb == 20
     assert settings.openrouter_api_key is None
 

@@ -254,11 +254,15 @@
   `LLM_PROVIDER=fake` el juez también es falso: un hecho cuenta si la mayoría de sus palabras está en
   la respuesta. Corrido completo contra Docker Compose con el LLM falso: 19/51 casos (esperable).
 
-**[ ] T29 — Cierre de la etapa 1** ⚠️ usa la API key
+**[x] T29 — Cierre de la etapa 1** ⚠️ usa la API key
 - Plan: 8.5, 8.6, 9.1 · Depende de: T26–T28
 - `scripts/smoke.sh`; evaluación con varios modelos de OpenRouter; elegir `LLM_MODEL` y
   `LLM_FAST_MODEL`; calibrar `REFERRAL_MIN_SCORE`; registrar resultados en `docs/`.
 - **Hecho cuando:** humo en verde y la evaluación cumple los criterios de éxito (≥ 80 %, 100 %, 100 %), o hay un plan acordado para lo que no cumple.
+- **Nota (2026-10-14):** cerrada con el humo en verde contra un modelo gratuito de OpenRouter
+  (`nvidia/nemotron-3-super-120b-a12b:free`) y `REFERRAL_MIN_SCORE` calibrado en 0,40. La evaluación
+  de calidad con LLM real quedó **pendiente**, acordado con Francisco: la cuenta gratuita permite 50
+  pedidos por día y una corrida necesita ~250. Detalle y opciones en `docs/cierre-etapa-1.md`.
 
 ---
 

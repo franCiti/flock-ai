@@ -899,7 +899,7 @@ Ninguna defensa es perfecta por sí sola; se combinan capas:
 |---|---|---|
 | Candidatos por tipo de búsqueda | `RETRIEVAL_CANDIDATES` | 20 |
 | Fragmentos que pasan a `grade` | `RETRIEVAL_TOP_K` | 8 |
-| Umbral mínimo para derivar | `REFERRAL_MIN_SCORE` | se calibra con la evaluación |
+| Umbral mínimo para derivar | `REFERRAL_MIN_SCORE` | `0.40` (calibrado al cerrar la etapa 1) |
 | Turnos de historial que se usan | `HISTORY_TURNS` | 6 |
 
 Los valores iniciales son un punto de partida: se ajustan con el set de evaluación.

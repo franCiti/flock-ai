@@ -5,10 +5,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+import httpx2
+import openai
+import pytest
 from aiokafka import TopicPartition
 from pydantic import BaseModel
 
-from flock_agent.agent.processing import Envelope, Replier, TokenStreamer, client_id_of
+from flock_agent.agent.processing import (
+    Envelope,
+    Replier,
+    TokenStreamer,
+    client_id_of,
+    is_llm_unavailable,
+)
 from flock_agent.agent.worker import AgentWorker, OffsetTracker
 
 P0 = TopicPartition("agent.requests", 0)
@@ -171,3 +180,24 @@ async def test_the_worker_touches_its_heartbeat_file(tmp_path: Path) -> None:
     )
     await worker.run(stop)
     assert heartbeat.exists()
+
+
+# --- LLM errors -------------------------------------------------------------------------------
+
+
+def _status_error(status: int) -> openai.APIStatusError:
+    request = httpx2.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    return openai.APIStatusError(
+        "error", response=httpx2.Response(status, request=request), body=None
+    )
+
+
+@pytest.mark.parametrize("status", [401, 402, 403])
+def test_provider_account_errors_mean_the_llm_is_unavailable(status: int) -> None:
+    assert is_llm_unavailable(_status_error(status))
+
+
+def test_other_errors_are_not_an_unavailable_llm() -> None:
+    assert is_llm_unavailable(ConnectionError("down"))
+    assert not is_llm_unavailable(_status_error(400))
+    assert not is_llm_unavailable(ValueError("bug"))

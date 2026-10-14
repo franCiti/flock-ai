@@ -82,7 +82,8 @@ class Settings(BaseSettings):
     # Retrieval (plan section 4.8)
     retrieval_candidates: PositiveInt = 20
     retrieval_top_k: PositiveInt = 8
-    referral_min_score: Annotated[float, Field(ge=0)] | None = None
+    # Calibrated with the evaluation cases at the close of stage 1 (docs/cierre-etapa-1.md)
+    referral_min_score: Annotated[float, Field(ge=0)] | None = 0.40
     history_turns: PositiveInt = 6
 
     # Configurable bot messages (spec HU11)
