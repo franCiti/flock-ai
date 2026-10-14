@@ -45,3 +45,6 @@ contracts/docs/
 
 # Runtime data: knowledge folders and downloaded models
 data/
+
+# Evaluation reports (flock-eval, plan 8.6)
+agent-service/eval/reports/

@@ -241,11 +241,18 @@
   `ingestion` queda en el perfil `ingestion-worker` hasta la T34 (su worker no existe todavía) y se usa
   con `docker compose run --rm ingestion flock-ingest run`; `KNOWLEDGE_HOST_DIR` (nuevo) elige la carpeta.
 
-**[ ] T28 — Evaluación (`flock-eval`)**
+**[x] T28 — Evaluación (`flock-eval`)**
 - Spec: criterios de éxito · Plan: 8.6 · Depende de: T17, T24
 - `cases.yaml` (≥ 20 casos por persona, todas las categorías), verificaciones, LLM como juez,
   reporte, comparación de modelos.
 - **Hecho cuando:** corre completo con el LLM falso (verificando la mecánica, no la calidad).
+- **Nota (2026-10-14):** 51 casos (26 de Juan, 25 de Ana), todas las categorías en cada persona; los
+  hechos salen del inventario de `examples/README.md`. Un caso puede tener `previous` (preguntas
+  anteriores de la misma conversación, HU5) y, en los ataques, varios `outcome` aceptables. El idioma
+  se detecta por palabras frecuentes (español/inglés). El prompt del juez (`JUDGE`) no forma parte de
+  `PROMPT_VERSION`. Sin `EVAL_JUDGE_MODEL`, el juez es el modelo rápido evaluado (avisa). Con
+  `LLM_PROVIDER=fake` el juez también es falso: un hecho cuenta si la mayoría de sus palabras está en
+  la respuesta. Corrido completo contra Docker Compose con el LLM falso: 19/51 casos (esperable).
 
 **[ ] T29 — Cierre de la etapa 1** ⚠️ usa la API key
 - Plan: 8.5, 8.6, 9.1 · Depende de: T26–T28

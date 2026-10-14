@@ -89,4 +89,22 @@ Muestra la respuesta a medida que llega, sus fuentes, la persona sugerida y los 
 `0` respuesta, `1` el agente respondió con un error, `2` no hubo respuesta a tiempo.
 Con el modelo real (cierre de etapa) se quita `LLM_PROVIDER` y se definen `OPENROUTER_API_KEY` y `LLM_MODEL`.
 
-Los comandos `flock-ingest worker` y `flock-eval` se implementan en las tareas T34 y T28.
+## Evaluación (`flock-eval`)
+
+Corre los casos de `eval/cases.yaml` contra el grafo (sin Kafka) sobre la base con las personas de
+`examples/knowledge` (cargarlas antes con `flock-ingest run`), con el certificado del agente:
+
+```powershell
+$certs = (Resolve-Path infra\certs\out\agent).Path
+$env:TLS_CERT_FILE = "$certs\agent.crt"; $env:TLS_KEY_FILE = "$certs\agent.key"; $env:TLS_CA_FILE = "$certs\ca.crt"
+$env:POSTGRES_USER = "agent"; $env:PYTHONIOENCODING = "utf-8"
+cd agent-service; uv run flock-eval                         # LLM_MODEL / LLM_FAST_MODEL; juez: EVAL_JUDGE_MODEL
+uv run flock-eval --models modelo-a,modelo-b+modelo-rapido  # compara modelos (PRINCIPAL o PRINCIPAL+RÁPIDO)
+uv run flock-eval --persona ana-datos --case ana-sales-schedule
+```
+
+Imprime el resultado de cada caso y los criterios de éxito, y escribe el reporte (Markdown y JSON,
+más una comparación si hay varios modelos) en `eval/reports/` (fuera de git). Con OpenRouter **solo
+al cerrar cada etapa** (D41); con `LLM_PROVIDER=fake` verifica la mecánica, no la calidad.
+
+El comando `flock-ingest worker` se implementa en la T34.

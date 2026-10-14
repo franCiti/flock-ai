@@ -36,6 +36,7 @@ from flock_agent.agent.prompts import (
     CONFIRM_REFERRAL,
     GENERATE,
     GRADE,
+    JUDGE,
     Prompt,
 )
 
@@ -229,7 +230,32 @@ def development_reply(messages: Sequence[BaseMessage]) -> FakeReply:
         return f"Según la documentación: {excerpt} [1]"
     if is_prompt(ADAPT_LANGUAGE):
         return _block(human, "message")
+    if is_prompt(JUDGE):
+        return _judge(human)
     return "OK"
+
+
+_WORD = re.compile(r"\w{4,}")
+_MIN_FACT_WORDS_FOUND = 0.6
+
+
+def _judge(human: str) -> dict[str, Any]:
+    """A fact is present if most of its words (4 letters or more) appear in the answer."""
+    answer = set(_WORD.findall(_block(human, "answer").lower()))
+    verdicts = []
+    for line in _block(human, "facts").splitlines():
+        fact = line.removeprefix("- ").strip()
+        words = _WORD.findall(fact.lower())
+        found = sum(word in answer for word in words)
+        present = bool(words) and found / len(words) >= _MIN_FACT_WORDS_FOUND
+        verdicts.append(
+            {
+                "fact": fact,
+                "present": present,
+                "explanation": f"{found} of {len(words)} words of the fact are in the answer",
+            }
+        )
+    return {"facts": verdicts}
 
 
 def development_model() -> FakeChatModel:

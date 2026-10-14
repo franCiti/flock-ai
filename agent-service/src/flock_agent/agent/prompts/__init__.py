@@ -8,6 +8,7 @@ from flock_agent.agent.prompts.templates import (
     CONFIRM_REFERRAL,
     GENERATE,
     GRADE,
+    JUDGE,
 )
 
 # Recorded in the audit log next to the model (D08).
@@ -20,6 +21,7 @@ __all__ = [
     "CONFIRM_REFERRAL",
     "GENERATE",
     "GRADE",
+    "JUDGE",
     "PROMPT_VERSION",
     "Prompt",
     "contains_canary",

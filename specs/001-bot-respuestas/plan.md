@@ -1510,7 +1510,7 @@ cerrar cada etapa, junto con la evaluación (D41).
 **Ejecución:**
 - `flock-eval` corre los casos **directamente contra el grafo** (sin Kafka), con el modelo configurado.
 - `flock-eval --models a,b,c` compara varios modelos y genera una tabla comparativa: así se eligen
-  `LLM_MODEL` y `LLM_FAST_MODEL` (D08).
+  `LLM_MODEL` y `LLM_FAST_MODEL` (D08). Cada elemento es `PRINCIPAL` o `PRINCIPAL+RÁPIDO`.
 - El juez usa su propio modelo (`EVAL_JUDGE_MODEL`), distinto del evaluado cuando sea posible.
 - Genera un reporte en `agent-service/eval/reports/` (fuera de git) con el resumen y el detalle de
   cada caso que falló.
