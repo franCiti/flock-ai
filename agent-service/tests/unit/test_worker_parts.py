@@ -1,13 +1,15 @@
 """Parts of the Agent Worker that need no infrastructure (task T25, plan 4.1)."""
 
+import asyncio
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID
 
 from aiokafka import TopicPartition
 from pydantic import BaseModel
 
 from flock_agent.agent.processing import Envelope, Replier, TokenStreamer, client_id_of
-from flock_agent.agent.worker import OffsetTracker
+from flock_agent.agent.worker import AgentWorker, OffsetTracker
 
 P0 = TopicPartition("agent.requests", 0)
 P1 = TopicPartition("agent.requests", 1)
@@ -132,3 +134,40 @@ def test_unreadable_fields_are_none() -> None:
 
 def test_the_client_id_comes_from_the_reply_topic() -> None:
     assert client_id_of("agent.replies.core-api") == "core-api"
+
+
+# --- Heartbeat --------------------------------------------------------------------------------
+
+
+class IdleConsumer:
+    """A consumer with no messages that asks the worker to stop after a few polls."""
+
+    def __init__(self, stop: asyncio.Event, polls: int = 3) -> None:
+        self._stop = stop
+        self._polls = polls
+
+    async def getmany(self, timeout_ms: int) -> dict[TopicPartition, list[object]]:
+        self._polls -= 1
+        if self._polls <= 0:
+            self._stop.set()
+        return {}
+
+    async def commit(self, offsets: dict[TopicPartition, int]) -> None:
+        raise AssertionError(offsets)  # nothing to commit without messages
+
+
+async def test_the_worker_touches_its_heartbeat_file(tmp_path: Path) -> None:
+    heartbeat = tmp_path / "heartbeat"
+    stop = asyncio.Event()
+
+    async def process(_: bytes) -> None:
+        raise AssertionError
+
+    worker = AgentWorker(
+        IdleConsumer(stop),
+        process,
+        max_concurrent=1,
+        heartbeat=heartbeat,
+    )
+    await worker.run(stop)
+    assert heartbeat.exists()

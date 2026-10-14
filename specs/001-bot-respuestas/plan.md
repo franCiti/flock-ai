@@ -268,6 +268,8 @@ Todo lo configurable de la spec se resuelve con **variables de entorno** (docume
 | Largo máximo de pregunta | `MAX_QUESTION_CHARS` | `2000` | HU15 |
 | Pedidos por minuto por app | `MAX_REQUESTS_PER_MINUTE` | `30` | HU15 |
 | Pedidos atendidos a la vez por el Agent Worker | `MAX_CONCURRENT_REQUESTS` | `8` | 4.1 |
+| Archivo de latido del Agent Worker (healthcheck del contenedor) | `HEARTBEAT_FILE` | *vacío* | 7.5 |
+| Carpeta de conocimiento montada en la ingesta (Compose) | `KNOWLEDGE_HOST_DIR` | `../data/knowledge` | 7.5 |
 | Modelo del LLM | `LLM_MODEL` | *se define con la evaluación* | D08 |
 | Proveedor del LLM (`fake`: respuestas fijas sin API key, solo desarrollo) | `LLM_PROVIDER` | `openrouter` | D41 |
 | API key de OpenRouter | `OPENROUTER_API_KEY` | *vacío* | D08 |

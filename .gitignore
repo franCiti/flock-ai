@@ -29,8 +29,10 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Corporate root CA (environment-specific)
-infra/corp-ca/
+# Corporate root CA (environment-specific). The folder and its README stay in git: the
+# Dockerfiles copy it (infra/corp-ca/README.md).
+infra/corp-ca/*
+!infra/corp-ca/README.md
 
 # Generated certificates
 infra/certs/out/

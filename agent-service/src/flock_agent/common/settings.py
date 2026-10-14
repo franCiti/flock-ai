@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     max_requests_per_minute: PositiveInt = 30
     # Requests the Agent Worker answers at the same time (plan 4.1)
     max_concurrent_requests: PositiveInt = 8
+    # Touched by the Agent Worker on every poll: the container health check reads it (7.5)
+    heartbeat_file: Path | None = None
 
     # Retrieval (plan section 4.8)
     retrieval_candidates: PositiveInt = 20

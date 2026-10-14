@@ -1,0 +1,25 @@
+# Build context of the project images is the repository root: keep it small and secret-free.
+.git
+.env
+**/.env
+.claude
+data
+infra/certs/out
+**/*.key
+**/*.pem
+**/*.p12
+**/*.jks
+
+# Python
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Java
+**/target
+
+# Node
+**/node_modules
+**/dist

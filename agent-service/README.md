@@ -62,6 +62,9 @@ Aplica las migraciones pendientes, procesa las carpetas e imprime el resumen por
 
 ## Levantar el agente y preguntarle (`flock-agent` y `flock-ask`)
 
+En contenedores: `LLM_PROVIDER=fake docker compose up -d --wait --build` levanta también el agente
+(ver `infra/README.md`) y `flock-ask` se usa igual que abajo. Para correrlo en la PC:
+
 Con el entorno de Docker Compose levantado y el conocimiento cargado. En una terminal, el Agent
 Worker con su certificado y el **LLM falso** (`LLM_PROVIDER=fake`: respuestas fijas, sin API key, D41):
 

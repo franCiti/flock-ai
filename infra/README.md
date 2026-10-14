@@ -21,8 +21,27 @@ La primera vez, dos contenedores de un solo uso preparan todo:
 |---|---|---|
 | `postgres` | `5433` | PostgreSQL 17 + pgvector. Solo TLS con certificado de cliente (7.3) |
 | `kafka` | `9093` | Kafka 4 en modo KRaft. Solo TLS 1.3 con certificado de cliente; ACLs que prohíben todo por defecto (7.2) |
+| `agent` | — | Agent Worker (`flock-agent`), imagen `agent-service/Dockerfile`. Sano cuando su bucle de Kafka está vivo |
+| `ingestion` | — | Ingesta (`flock-ingest`), misma imagen. Hasta la T34 no se levanta sola: se usa con `docker compose run` |
 
 Dentro de la red de Docker, Kafka escucha en `kafka:9094`; desde la PC, en `localhost:9093`.
+
+### Agente e ingesta en contenedores
+
+```bash
+LLM_PROVIDER=fake docker compose up -d --wait --build      # sin API key: respuestas fijas (D41)
+KNOWLEDGE_HOST_DIR=../examples/knowledge docker compose run --rm ingestion flock-ingest run
+```
+
+- `LLM_PROVIDER`, `KNOWLEDGE_HOST_DIR` y los parámetros del agente se pueden fijar en `.env`. Sin
+  `KNOWLEDGE_HOST_DIR` la ingesta lee `data/knowledge/`. Con el modelo real se definen
+  `OPENROUTER_API_KEY` y `LLM_MODEL` en lugar de `LLM_PROVIDER=fake`.
+- Cada contenedor recibe solo su certificado y sus variables. Arrancan como root solo para copiar
+  su clave privada y preparar la caché del modelo, y después corren con el usuario `flock`.
+- La primera vez, el agente descarga el modelo de embeddings (~0,2 GB) al volumen `embedding-models`,
+  compartido con la ingesta; por eso su healthcheck tolera hasta 5 minutos de arranque.
+- Para preguntarle: `flock-ask` desde la PC con el certificado `cli` (ver `agent-service/README.md`).
+- Si la red inspecciona HTTPS y fallan los builds: `infra/corp-ca/README.md`.
 
 ## Verificaciones
 

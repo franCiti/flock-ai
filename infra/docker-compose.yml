@@ -78,6 +78,93 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # Agent Worker: answers agent.requests (plan section 4.1). Without an API key, LLM_PROVIDER=fake
+  # in .env runs it with canned answers (D41).
+  agent:
+    build: &agent-service-build
+      context: ..
+      dockerfile: agent-service/Dockerfile
+    image: flock-ai/agent-service:dev
+    command: ["flock-agent"]
+    environment:
+      <<: &agent-service-connections
+        POSTGRES_HOST: postgres
+        POSTGRES_PORT: "5432"
+        KAFKA_BOOTSTRAP_SERVERS: kafka:9094
+        LOG_LEVEL: ${LOG_LEVEL:-INFO}
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+        EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-}
+      TLS_CERT_FILE: /run/flock/certs/agent.crt
+      TLS_KEY_FILE: /run/flock/certs/agent.key
+      TLS_CA_FILE: /run/flock/certs/ca.crt
+      POSTGRES_USER: agent
+      HEARTBEAT_FILE: /run/flock/heartbeat
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_FAST_MODEL: ${LLM_FAST_MODEL:-}
+      CONVERSATION_TTL: ${CONVERSATION_TTL:-}
+      ANSWER_TIMEOUT: ${ANSWER_TIMEOUT:-}
+      FIRST_TOKEN_TARGET: ${FIRST_TOKEN_TARGET:-}
+      MAX_QUESTION_CHARS: ${MAX_QUESTION_CHARS:-}
+      MAX_REQUESTS_PER_MINUTE: ${MAX_REQUESTS_PER_MINUTE:-}
+      MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-}
+      RETRIEVAL_CANDIDATES: ${RETRIEVAL_CANDIDATES:-}
+      RETRIEVAL_TOP_K: ${RETRIEVAL_TOP_K:-}
+      REFERRAL_MIN_SCORE: ${REFERRAL_MIN_SCORE:-}
+      HISTORY_TURNS: ${HISTORY_TURNS:-}
+    volumes:
+      - ./certs/out/agent:/certs:ro
+      - embedding-models:/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      # The worker touches its heartbeat file on every poll of agent.requests (about every 0.5 s).
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/run/flock/heartbeat') > 30)"
+      interval: 10s
+      timeout: 5s
+      # The first start downloads the embedding model (about 0.2 GB) into the shared cache.
+      start_period: 300s
+      retries: 3
+    restart: unless-stopped
+
+  # Ingestion: `docker compose run --rm ingestion flock-ingest run` updates the knowledge base of
+  # data/knowledge (or KNOWLEDGE_HOST_DIR). It is the only service that sees the files (plan 7.5).
+  ingestion:
+    build: *agent-service-build
+    image: flock-ai/agent-service:dev
+    # TODO(T34): the Ingestion Worker (consumes ingestion.jobs) does not exist yet. Until then the
+    # service only starts with its profile or with `docker compose run`; T34 removes the profile
+    # and adds its health check.
+    profiles: ["ingestion-worker"]
+    command: ["flock-ingest", "worker"]
+    environment:
+      <<: *agent-service-connections
+      TLS_CERT_FILE: /run/flock/certs/ingestion.crt
+      TLS_KEY_FILE: /run/flock/certs/ingestion.key
+      TLS_CA_FILE: /run/flock/certs/ca.crt
+      POSTGRES_USER: ingestion
+      MAX_FILE_MB: ${MAX_FILE_MB:-}
+    volumes:
+      - ./certs/out/ingestion:/certs:ro
+      - embedding-models:/models
+      # Read-write: the ingestion creates missing persona profiles (plan 5.7).
+      - ${KNOWLEDGE_HOST_DIR:-../data/knowledge}:/knowledge
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
 volumes:
   postgres-data:
   kafka-data:
+  # Embedding model cache, shared by agent and ingestion.
+  embedding-models:

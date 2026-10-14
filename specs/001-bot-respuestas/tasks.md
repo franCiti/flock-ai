@@ -230,10 +230,16 @@
 
 ### Despliegue y cierre
 
-**[ ] T27 — Imagen Python y servicios en Compose**
+**[x] T27 — Imagen Python y servicios en Compose**
 - Plan: 7.5 · Depende de: T05, T18, T25
 - Dockerfile (agrega los `.crt` de `infra/corp-ca/` si existen), servicios `agent` e `ingestion`, volúmenes y healthchecks.
 - **Hecho cuando:** `docker compose up` levanta todo y `flock-ingest run` + `flock-ask` funcionan contra los contenedores (con LLM falso).
+- **Nota (2026-10-14):** imagen en dos etapas (`agent-service/Dockerfile`, contexto la raíz del repo,
+  `.dockerignore` deja afuera `.env`, `data/` y las claves). Arranca como root solo para copiar su clave
+  privada y dar la caché del modelo al usuario `flock`, y corre como `flock`. El healthcheck del agente
+  mira un archivo de latido que el worker toca en cada vuelta (`HEARTBEAT_FILE`, nuevo). El servicio
+  `ingestion` queda en el perfil `ingestion-worker` hasta la T34 (su worker no existe todavía) y se usa
+  con `docker compose run --rm ingestion flock-ingest run`; `KNOWLEDGE_HOST_DIR` (nuevo) elige la carpeta.
 
 **[ ] T28 — Evaluación (`flock-eval`)**
 - Spec: criterios de éxito · Plan: 8.6 · Depende de: T17, T24

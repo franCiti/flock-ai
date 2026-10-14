@@ -16,6 +16,7 @@ import signal
 from collections import deque
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from aiokafka import AIOKafkaConsumer, TopicPartition
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -89,6 +90,7 @@ class AgentWorker:
         max_concurrent: int,
         maintenance: Callable[[], Awaitable[None]] | None = None,
         maintenance_interval: timedelta = MAINTENANCE_INTERVAL,
+        heartbeat: Path | None = None,
     ) -> None:
         self._consumer = consumer
         self._process = process
@@ -97,6 +99,7 @@ class AgentWorker:
         self._tasks: set[asyncio.Task[None]] = set()
         self._maintenance = maintenance
         self._maintenance_interval = maintenance_interval
+        self._heartbeat = heartbeat
 
     async def run(self, stop: asyncio.Event) -> None:
         maintenance = None
@@ -115,6 +118,7 @@ class AgentWorker:
                         self._tasks.add(task)
                         task.add_done_callback(self._tasks.discard)
                 await self._commit()
+                self._beat()
         finally:
             if self._tasks:
                 await asyncio.gather(*self._tasks, return_exceptions=True)
@@ -123,6 +127,11 @@ class AgentWorker:
                 maintenance.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await maintenance
+
+    def _beat(self) -> None:
+        """Show the loop is alive (the container health check looks at the file's age)."""
+        if self._heartbeat is not None:
+            self._heartbeat.touch()
 
     async def _handle(self, partition: TopicPartition, offset: int, value: bytes | None) -> None:
         try:
@@ -243,6 +252,7 @@ async def serve(settings: Settings) -> None:
             processor.process,
             max_concurrent=settings.max_concurrent_requests,
             maintenance=maintenance_task(conversations, processed, rate_limiter, checkpointer),
+            heartbeat=settings.heartbeat_file,
         )
         stop = asyncio.Event()
         _stop_on_signals(stop)
