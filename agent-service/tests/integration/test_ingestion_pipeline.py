@@ -217,3 +217,43 @@ async def test_the_run_is_recorded_with_its_summary(
     assert record.status == "completed"
     assert record.summary is not None
     assert record.summary["totals"]["personas"] == 2
+
+
+async def test_secrets_never_reach_the_knowledge_base(
+    pipeline: IngestionPipeline, knowledge: KnowledgeRepository
+) -> None:
+    """The example documents with made-up secrets (task T12, spec HU15.4)."""
+    result = await run(pipeline)
+    assert persona(result, "juan-plataforma").secrets_masked >= 4
+    assert persona(result, "ana-datos").secrets_masked >= 2
+
+    async with knowledge._pool.connection() as connection:
+        cursor = await connection.execute(
+            "SELECT string_agg(content, ' ') FROM chunk WHERE document_id = ANY(%s)",
+            (
+                [
+                    "file:juan-plataforma:procedimientos/acceso-bastion.md",
+                    "file:ana-datos:pipelines/conexion-warehouse.md",
+                ],
+            ),
+        )
+        row = await cursor.fetchone()
+        cursor = await connection.execute(
+            "SELECT id, secrets_masked FROM document WHERE secrets_masked > 0 ORDER BY id"
+        )
+        masked = await cursor.fetchall()
+    assert row is not None
+    content = str(row[0])
+    for secret in (
+        "Bastion-Example-2026!",
+        "AKIAIOSFODNN7EXAMPLE",
+        "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "ghp_EXAMPLEtokenEXAMPLEtokenEXAMPLE1234",
+        "Dwh-Example-2026",
+    ):
+        assert secret not in content
+    assert "[dato oculto]" in content
+    assert [document_id for document_id, _ in masked] == [
+        "file:ana-datos:pipelines/conexion-warehouse.md",
+        "file:juan-plataforma:procedimientos/acceso-bastion.md",
+    ]

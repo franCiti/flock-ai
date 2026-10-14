@@ -93,9 +93,15 @@
 - Plan: 5.5 · Depende de: T02
 - **Hecho cuando:** tests cubren cortes por encabezado y párrafo, solapamiento, contexto `[título > sección]` y correos e issues.
 
-**[ ] T12 — Ocultamiento de secretos**
+**[x] T12 — Ocultamiento de secretos**
 - Spec: HU15.4 · Plan: 5.6 · Depende de: T02
 - **Hecho cuando:** cada detector tiene casos que deben ocultarse y casos parecidos que no; se cuentan las ocultaciones.
+- **Nota (2026-10-14):** en las credenciales de URLs y los pares clave-valor (`password: …`,
+  `Password=…;`) se oculta solo el **valor** y solo si parece un secreto: sin espacios, 6 caracteres o
+  más y con dígitos, símbolos o mayúsculas internas (o 16 caracteres o más). Así "la contraseña: se
+  pide al líder" no se toca. Los tokens con forma reconocible y las claves privadas se ocultan siempre.
+  El texto de reemplazo sale de `messages.yaml` (`secret_placeholder`). Como el hash de contenido se
+  calcula sobre el texto ya ocultado, la próxima ingesta reindexa los documentos que tenían secretos.
 
 **[x] T13 — Parsers de texto, HTML, PDF y Word**
 - Spec: HU4.6, HU4.7 · Plan: 5.3 · Depende de: T02

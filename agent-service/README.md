@@ -59,7 +59,7 @@ cd agent-service; uv run flock-ingest run              # o --persona juan-plataf
 Aplica las migraciones pendientes, procesa las carpetas e imprime el resumen por persona. Salida:
 `0` bien, `1` falló, `3` ya había otra actualización en curso.
 
-Pendiente: ocultar secretos (T12) y leer correos (T14) están marcados como `TODO` en el código.
+Pendiente: leer correos (T14), marcado como `TODO` en el código.
 
 ## Levantar el agente y preguntarle (`flock-agent` y `flock-ask`)
 

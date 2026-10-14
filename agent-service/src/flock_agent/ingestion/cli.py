@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
+from flock_agent.agent.messages import load_messages
 from flock_agent.common.aio import run_async
 from flock_agent.common.bootstrap import bootstrap
 from flock_agent.common.cli import exit_not_implemented
@@ -59,6 +60,7 @@ async def _run(settings: Settings, *, persona: str | None) -> int:
     if applied:
         log.info("migrations applied", extra={"migrations": applied})
 
+    messages = load_messages(settings.messages_file)
     embedder = await asyncio.to_thread(
         FastEmbedEmbedder,
         settings.embedding_model,
@@ -72,6 +74,7 @@ async def _run(settings: Settings, *, persona: str | None) -> int:
             embedder,
             knowledge_root=settings.knowledge_root,
             max_bytes=settings.max_file_mb * 1024 * 1024,
+            secret_placeholder=messages.secret_placeholder,
         )
         try:
             result = await pipeline.run(

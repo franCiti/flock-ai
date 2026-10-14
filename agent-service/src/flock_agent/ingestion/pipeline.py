@@ -1,7 +1,6 @@
 """Knowledge update: persona folders -> documents -> chunks -> embeddings (plan sections 5.1, 5.5).
 
 Pending pieces, kept as explicit extension points so the pipeline runs end to end:
-- TODO(T12): knowledge.redaction.redact() is a pass-through; secrets are not masked yet.
 - TODO(T14): .eml/.msg files are skipped by the parsers ("email files are not supported yet").
 - TODO(T47+): external sources (Jira, Confluence, SharePoint) arrive in stage 3.
 """
@@ -25,7 +24,7 @@ from flock_agent.knowledge.chunking import chunk_markdown, chunk_plain
 from flock_agent.knowledge.embeddings import Embedder
 from flock_agent.knowledge.index_model import ensure_embedding_model
 from flock_agent.knowledge.models import ChunkInput, DocumentRecord, RunTrigger
-from flock_agent.knowledge.redaction import redact
+from flock_agent.knowledge.redaction import DEFAULT_PLACEHOLDER, redact
 from flock_agent.knowledge.repository import IngestionAlreadyRunningError, KnowledgeRepository
 
 log = logging.getLogger(__name__)
@@ -106,8 +105,10 @@ class IngestionPipeline:
         knowledge_root: Path,
         max_bytes: int,
         on_event: EventSink | None = None,
+        secret_placeholder: str = DEFAULT_PLACEHOLDER,
     ) -> None:
         self._repository = repository
+        self._secret_placeholder = secret_placeholder
         self._embedder = embedder
         self._root = knowledge_root
         self._max_bytes = max_bytes
@@ -235,7 +236,7 @@ class IngestionPipeline:
     # --- Documents --------------------------------------------------------------------------
 
     async def _index(self, document: SourceDocument, result: PersonaResult) -> None:
-        redacted = redact(document.content)  # TODO(T12): pass-through until secrets are masked
+        redacted = redact(document.content, self._secret_placeholder)
         content_hash = _content_hash(document, redacted.text)
         previous = await self._repository.get_content_hash(document.id)
         if previous == content_hash:
