@@ -173,6 +173,51 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Core API: REST API and SSE for the web app, Kafka client of the agent (plan section 6). Inside the
+  # Docker network only: the web app (nginx) will publish it on the PC.
+  core-api:
+    build:
+      context: ..
+      dockerfile: core-api/Dockerfile
+    image: flock-ai/core-api:dev
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9094
+      TLS_CERT_FILE: /run/flock/certs/core-api.crt
+      TLS_KEY_FILE: /run/flock/certs/core-api.key
+      TLS_CA_FILE: /run/flock/certs/ca.crt
+      # Spring reads an empty variable as an empty value, not as missing: these defaults repeat
+      # those of application.yml.
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      INGESTION_INTERVAL: ${INGESTION_INTERVAL:-30m}
+      ANSWER_TIMEOUT: ${ANSWER_TIMEOUT:-2m}
+      MAX_QUESTION_CHARS: ${MAX_QUESTION_CHARS:-2000}
+    volumes:
+      - ./certs/out/core-api:/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      # Spring Boot Actuator (plan 7.6); the image has no curl, bash speaks HTTP by itself.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/localhost/8080
+          && printf 'GET /actuator/health HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3
+          && grep -q '"status":"UP"' <&3
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   kafka-data:

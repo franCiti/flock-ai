@@ -370,9 +370,18 @@
   `scripts/check.sh` corre `contracts/build-docs.sh` antes de los tests de `core-api`, y la imagen
   (T39) la genera en su build. Sin generarla, el test de AsyncAPI queda omitido.
 
-**[ ] T39 — Imagen de core-api**
+**[x] T39 — Imagen de core-api**
 - Plan: 7.5 · Depende de: T05, T31
 - **Hecho cuando:** `core-api` corre en Compose y se conecta a Kafka y Postgres con su certificado.
+- **Nota (2026-10-15):** imagen en tres etapas: Node genera la documentación AsyncAPI, Maven arma el
+  jar (sin tests, Spotless ni Checkstyle: corren en `scripts/check.sh`, y los tests necesitan Docker)
+  y la ejecución usa JRE 21 con el usuario `flock` (el entrypoint copia el certificado, como en
+  agent-service). El build instala `unzip`: sin él, el Maven Wrapper baja el `.tar.gz` y falla el
+  control del SHA-256 (que es del `.zip`). Healthcheck contra `/actuator/health` con bash (la imagen
+  no trae curl). El servicio no publica puertos en la PC hasta la web (T45), según el plan 7.5. En
+  Compose, las variables que lee Spring llevan su valor por defecto: una variable vacía no cuenta como
+  ausente. Verificado en Compose: Flyway con `verify-full`, los tres consumidores de Kafka con sus
+  particiones, `/docs/` y `/docs/asyncapi/` con 200 y `/api/**` con 401 sin sesión.
 
 ### Front
 

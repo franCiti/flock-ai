@@ -36,6 +36,26 @@ certificado `core-api`, que es su rol de Postgres (`core_api`) y su usuario de K
 - **Kafka:** los mensajes del contrato se publican con `ContractPublisher` (headers `content-type` y
   `schema`); se consume con el grupo `core-api`.
 
+## Configuración
+
+| Variable | Para qué | Por defecto |
+|---|---|---|
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Usuario inicial, si no hay ninguno (se guarda con BCrypt) | — |
+| `SESSION_COOKIE_SECURE` | Cookie de sesión solo por HTTPS | `true` |
+| `INGESTION_INTERVAL` | Cada cuánto se pide una actualización del conocimiento | `30m` |
+| `ANSWER_TIMEOUT` | Cuánto se guardan las respuestas de un pedido para una reconexión del SSE | `2m` |
+| `MAX_QUESTION_CHARS` | Largo máximo de pregunta que informa `GET /api/config` (el mismo que el agente) | `2000` |
+
+## Imagen
+
+`core-api/Dockerfile` (contexto: la raíz del repositorio) genera la documentación AsyncAPI, arma el
+jar sin correr los tests y lo ejecuta con JRE 21 y el usuario `flock`. En Compose es el servicio
+`core-api` (ver `infra/README.md`):
+
+```bash
+docker compose up -d --wait --build core-api
+```
+
 ## Tests
 
 - `@IntegrationTest`: la app entera contra Postgres y Kafka efímeros (Testcontainers, perfil `test`,

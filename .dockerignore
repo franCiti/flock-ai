@@ -5,6 +5,8 @@
 .claude
 data
 infra/certs/out
+# Generated inside the core-api image build
+contracts/docs
 **/*.key
 **/*.pem
 **/*.p12
