@@ -2,6 +2,8 @@ package ar.com.flockit.flockai.core.ingestion;
 
 import ar.com.flockit.flockai.core.contract.IngestionJob;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -39,7 +41,13 @@ public class IngestionRunsController {
     @PostMapping
     @Operation(summary = "Update the knowledge base now")
     @ApiResponse(responseCode = "202", description = "Requested; its progress shows in the history")
-    @ApiResponse(responseCode = "503", description = "Kafka is not available")
+    @ApiResponse(
+            responseCode = "503",
+            description = "Kafka is not available",
+            content =
+                    @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemDetail.class)))
     public ResponseEntity<RequestedRun> request() {
         UUID jobId = ingestion.request(IngestionJob.Trigger.MANUAL);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(new RequestedRun(jobId));

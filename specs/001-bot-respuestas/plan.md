@@ -1177,7 +1177,7 @@ Front                         Core API                                   Kafka
 - La Core API es **un cliente más** del agente (D23): publica en `agent.requests` y escucha
   `agent.replies.core-api`.
 - El front **abre el SSE antes** de enviar la pregunta, para no perder los primeros mensajes.
-- Cada evento SSE lleva el `seq` como identificador. La Core API guarda en memoria los eventos del
+- Cada evento SSE lleva `<requestId>:<seq>` como identificador (nombre del evento: el `type`). La Core API guarda en memoria los eventos del
   pedido en curso de cada conversación (hasta `ANSWER_TIMEOUT`): si el navegador se reconecta,
   recibe lo que se perdió.
 - **Una sola instancia** de la Core API en el MVP: con varias, cada una debería recibir solo las

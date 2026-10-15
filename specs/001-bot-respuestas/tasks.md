@@ -337,10 +337,17 @@
   programado sale un intervalo después de arrancar. El job todavía no lleva fuentes externas
   (`TODO(T47)`). `GET /api/ingestion/runs?limit=` (1–100, por defecto 20), del más nuevo al más viejo.
 
-**[ ] T36 — Chat: de HTTP a Kafka**
+**[x] T36 — Chat: de HTTP a Kafka**
 - Spec: HU6, HU10 · Plan: 6.3, 6.4 · Depende de: T32
 - `POST …/messages`, SSE `…/stream`, consumo de `agent.replies.core-api`, buffer para reconexión.
 - **Hecho cuando:** test de punta a punta con un agente simulado: el SSE recibe `accepted`, `token` y `final`, y una reconexión recupera lo perdido.
+- **Nota (2026-10-15):** el id de cada evento SSE es `<requestId>:<seq>` (no solo el `seq`, ver plan
+  6.4): así un navegador que se reconecta después de una pregunta nueva recibe el pedido nuevo entero.
+  El nombre del evento es el `type` del mensaje y el dato es el `AgentReply` tal como llegó. Al abrir
+  el stream se manda un comentario `connected` (confirma la conexión enseguida) y después uno cada
+  20 s. Una pregunta nueva descarta lo guardado del pedido anterior y las respuestas de pedidos
+  viejos no se reenvían. Lo guardado se olvida pasados `ANSWER_TIMEOUT` (por defecto 2 min) + 1 min.
+  Al apagar, la Core API cierra los streams antes que el servidor web.
 
 **[ ] T37 — Personas, configuración y auditoría**
 - Spec: HU8, HU10 · Plan: 6.3 · Depende de: T33

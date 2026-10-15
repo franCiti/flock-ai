@@ -8,6 +8,9 @@
     "name" : "ingestion",
     "description" : "Knowledge updates"
   }, {
+    "name" : "chat",
+    "description" : "Questions to a virtual persona and their streamed replies"
+  }, {
     "name" : "auth",
     "description" : "Session of the web app (cookie)"
   } ],
@@ -63,9 +66,58 @@
           "503" : {
             "description" : "Kafka is not available",
             "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conversations/{conversationId}/messages" : {
+      "post" : {
+        "tags" : [ "chat" ],
+        "summary" : "Ask a question: its replies arrive through the stream of the conversation",
+        "operationId" : "send",
+        "parameters" : [ {
+          "name" : "conversationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 1
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Question"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Sent to the agent",
+            "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/RequestedRun"
+                  "$ref" : "#/components/schemas/SentQuestion"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Kafka is not available",
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
                 }
               }
             }
@@ -94,6 +146,44 @@
           },
           "401" : {
             "description" : "Wrong username or password"
+          }
+        }
+      }
+    },
+    "/api/conversations/{conversationId}/stream" : {
+      "get" : {
+        "tags" : [ "chat" ],
+        "summary" : "Replies of the conversation (Server-Sent Events)",
+        "description" : "Each event is an AgentReply of the contract (accepted, token, final, error) with id <requestId>:<seq>. Reconnecting with Last-Event-ID replays what was missed of the request in progress.",
+        "operationId" : "stream",
+        "parameters" : [ {
+          "name" : "conversationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 1
+          }
+        }, {
+          "name" : "Last-Event-ID",
+          "in" : "header",
+          "description" : "Id of the last event received",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The stream of events",
+            "content" : {
+              "text/event-stream" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
           }
         }
       }
@@ -130,10 +220,61 @@
   },
   "components" : {
     "schemas" : {
+      "ProblemDetail" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "instance" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "properties" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        }
+      },
       "RequestedRun" : {
         "type" : "object",
         "properties" : {
           "jobId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "Question" : {
+        "type" : "object",
+        "properties" : {
+          "personaId" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "question" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "personaId", "question" ]
+      },
+      "SentQuestion" : {
+        "type" : "object",
+        "properties" : {
+          "requestId" : {
             "type" : "string",
             "format" : "uuid"
           }
