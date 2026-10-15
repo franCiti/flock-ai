@@ -308,10 +308,15 @@
   y el front lo llama sin el cliente generado. `test:api` se corrió contra la Core API en la PC con un
   usuario temporal que después se borró: el `.env` no tiene `ADMIN_PASSWORD`.
 
-**[ ] T33 — Copias de lectura**
+**[x] T33 — Copias de lectura**
 - Spec: HU8, HU10 · Plan: 3.5, 6.5 · Depende de: T31
 - Consumidores de `ingestion.events` (`persona_view`, `ingestion_run_view`) y `agent.audit` (`audit_entry_view`).
 - **Hecho cuando:** tests verifican altas, cambios, bajas e idempotencia.
+- **Nota (2026-10-15):** `ingestion_run_view` guarda el resumen por persona como objeto indexado por
+  `personaId` (aplicar dos veces el mismo evento da lo mismo) y suma el estado `requested` para T35
+  (la corrida existe desde que la Core API publica el job). Un `started` repetido no reabre una corrida
+  terminada y un mensaje viejo no pisa el nombre más nuevo de una persona. Los mensajes ilegibles se
+  registran y se saltean. `MutualTlsStackTest` corre con los listeners apagados.
 
 **[ ] T34 — Ingestion Worker con Kafka**
 - Spec: HU4.8, HU4.9 · Plan: 5.1 · Decisiones: D31 · Depende de: T18, T08

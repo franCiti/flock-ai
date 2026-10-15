@@ -32,10 +32,11 @@ import org.springframework.test.context.DynamicPropertySource;
  * The real connections (default profile "mtls") against the Docker Compose stack, with the
  * certificate {@code core-api} (plan 7.1-7.3). Skipped when the stack is not running.
  *
- * <p>It leaves no trace: it only reads (Flyway applies the same migrations the Core API applies at
+ * <p>It leaves no trace: the Kafka listeners stay stopped (they would consume real messages with the
+ * group core-api), it only reads (Flyway applies the same migrations the Core API applies at
  * start-up) and describes topics, without producing or consuming messages.
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.kafka.listener.auto-startup=false")
 @EnabledIf("stackIsRunning")
 class MutualTlsStackTest {
 
