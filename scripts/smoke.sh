@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end smoke test (plan section 8.5): starts everything with Docker Compose, ingests
 # examples/knowledge, asks a question with flock-ask and checks that a final reply with
-# citations arrives.
+# citations arrives. Then scripts/smoke-web.mjs does the same through the web app at
+# http://localhost:8080 (stage 2), with ADMIN_USERNAME and ADMIN_PASSWORD of .env.
 #
 # Uses the real LLM configured in .env (OPENROUTER_API_KEY, LLM_MODEL): run it only when closing
 # a stage (D41). `LLM_PROVIDER=fake scripts/smoke.sh` checks the mechanics without the API key.
@@ -22,11 +23,15 @@ step() {
   printf '\n==> %s\n' "$1"
 }
 
+# The ingestion worker also reads examples/knowledge: the updates the Core API schedules (and the
+# one of the web check) must find the same personas, not an empty data/knowledge.
+export KNOWLEDGE_HOST_DIR=../examples/knowledge
+
 step "Starting the stack (docker compose up)"
 docker compose up -d --wait --build
 
 step "Ingesting examples/knowledge"
-KNOWLEDGE_HOST_DIR=../examples/knowledge docker compose run --rm ingestion flock-ingest run
+docker compose run --rm ingestion flock-ingest run
 
 step "Asking $PERSONA: $QUESTION"
 # flock-ask from a container on the Compose network, as the client app "cli".
@@ -67,4 +72,7 @@ if [ "$failures" -gt 0 ]; then
   printf '\nSmoke test FAILED (%d checks)\n' "$failures"
   exit 1
 fi
-printf '\nSmoke test passed\n'
+printf '\nflock-ask smoke test passed\n'
+
+step "Web app (stage 2)"
+node scripts/smoke-web.mjs

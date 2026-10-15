@@ -447,10 +447,17 @@
   y la API simulada de los tests valida el CSRF como Spring. Los helpers de CSRF pasaron a
   `api/csrf.ts`.
 
-**[ ] T45 — Cierre de la etapa 2** ⚠️ usa la API key
+**[x] T45 — Cierre de la etapa 2** ⚠️ usa la API key
 - Plan: 8.5, 8.6, 9.1 · Depende de: T41–T44
 - Humo de punta a punta por el navegador y evaluación.
 - **Hecho cuando:** humo en verde y la evaluación mantiene los criterios de éxito.
+- **Nota (2026-10-15):** cerrada como la T29: humo en verde (`scripts/smoke.sh`, que ahora sigue con
+  `scripts/smoke-web.mjs` contra `http://localhost:8080`) con el modelo gratuito y recorrida de la
+  demo en el navegador; la evaluación con LLM real **sigue pendiente** por el límite de la cuenta
+  gratuita. El humo encontró que el modelo escribe las marcas de cita como `\[1\]` o `【1】`, y las
+  respuestas quedaban sin fuentes: el agente ahora las acepta. `smoke.sh` fija
+  `KNOWLEDGE_HOST_DIR=../examples/knowledge` para que el Ingestion Worker no monte una
+  `data/knowledge` vacía. Detalle en `docs/cierre-etapa-2.md`.
 
 ---
 

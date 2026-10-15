@@ -14,6 +14,7 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
 | `docs/arquitectura.md` | Vista general |
 | `docs/notas-entorno.md` | Proxy corporativo, Docker y otras particularidades de esta PC |
 | `docs/cierre-etapa-1.md` | Resultados del cierre de la etapa 1 y lo que quedó pendiente |
+| `docs/cierre-etapa-2.md` | Resultados del cierre de la etapa 2 y lo que quedó pendiente |
 
 ## Reglas del proyecto
 
@@ -56,8 +57,9 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
 
 **Desvíos acordados que hay que tener presentes** (detalle en la nota de T18 en `tasks.md`):
 
-- **Evaluación de calidad con LLM real pendiente (T29):** la cuenta de OpenRouter es gratuita
-  (50 pedidos por día a modelos `:free`); opciones en `docs/cierre-etapa-1.md`.
+- **Evaluación de calidad con LLM real pendiente (T29 y T45):** la cuenta de OpenRouter es gratuita
+  (50 pedidos por día a modelos `:free`); opciones en `docs/cierre-etapa-1.md`. Las etapas 1 y 2
+  cerraron con la prueba de humo (`scripts/smoke.sh`, que incluye la web).
 - **T12 y T14 se hicieron después de la T18** (a pedido); ya están completas. Los tests de `.msg`
   quedan **omitidos** hasta que alguien agregue `agent-service/tests/fixtures/files/sample.msg`
   guardado desde Outlook (`extract-msg` lee ese formato pero no lo crea).
