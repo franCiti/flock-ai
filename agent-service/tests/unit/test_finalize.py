@@ -2,6 +2,8 @@
 
 from typing import Any, cast
 
+import pytest
+
 from flock_agent.agent.fake_llm import FakeChatModel
 from flock_agent.agent.graph.deps import Dependencies
 from flock_agent.agent.graph.finalize import apply_citations, finalize, sanitize_markdown
@@ -100,9 +102,17 @@ def test_lists_of_marks_are_split() -> None:
     assert len(citations) == 2
 
 
-def test_marks_escaped_as_markdown_count_too() -> None:
-    # Seen with a real model: it wrote the marks as \[1\], so the answer lost its sources.
-    answer, citations = apply_citations("Primero \\[1\\]. Ambos \\[1, 2\\].", [hit(1), hit(2)])
+@pytest.mark.parametrize(
+    ("first", "both"),
+    [
+        ("\\[1\\]", "\\[1, 2\\]"),  # escaped as Markdown
+        ("【1】", "【1, 2】"),  # CJK brackets
+        ("\uff3b1\uff3d", "\uff3b1,2\uff3d"),  # fullwidth brackets
+    ],
+)
+def test_marks_written_in_other_styles_count_too(first: str, both: str) -> None:
+    # Seen with free models in the stage 2 smoke test: the answer lost its sources.
+    answer, citations = apply_citations(f"Primero {first}. Ambos {both}.", [hit(1), hit(2)])
 
     assert answer == "Primero [1]. Ambos [1][2]."
     assert [c["document_id"] for c in citations] == [
