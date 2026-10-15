@@ -1,9 +1,10 @@
-"""finalize: the last node, no LLM (plan 4.3, 4.5).
+r"""finalize: the last node, no LLM (plan 4.3, 4.5).
 
 1. If the answer contains the canary, the prompt leaked: the answer is replaced by the general
    error message and the request is marked `injection_suspected` (spec HU13.3).
 2. `[n]` marks become `citations`. Marks that point to no fragment are removed, and the rest are
-   renumbered in order of appearance, so `[k]` is always `citations[k - 1]`.
+   renumbered in order of appearance, so `[k]` is always `citations[k - 1]`. Some models escape
+   them as Markdown (`\[n\]`): those count too.
 3. The Markdown is sanitized (spec HU15.6): no images, no HTML and no link whose URL is not the
    URL of a citation.
 4. The question and the answer are added to the history (never the fragments).
@@ -17,6 +18,7 @@ from flock_agent.agent.graph.state import AgentState, CitationRef, Turn, add_fla
 from flock_agent.agent.prompts import contains_canary
 from flock_agent.knowledge.models import SearchHit
 
+_ESCAPED_MARK = re.compile(r"\\\[(\d{1,3}(?:\s*,\s*\d{1,3})*)\\\]")  # \[1\] -> [1]
 _MARK_LIST = re.compile(r"\[(\d{1,3}(?:\s*,\s*\d{1,3})+)\]")  # [1, 2] -> [1][2]
 _MARK = re.compile(r"\[(\d{1,3})\](?![(:])")  # not a link "[1](url)" or "[1]: url"
 _SPACE_BEFORE_PUNCTUATION = re.compile(r"[ \t]+([.,;:!?])")
@@ -32,6 +34,7 @@ _BARE_URL = re.compile(r"(?<![\w(<`/])((?:https?|ftp)://[^\s<>()\[\]`]+)")
 
 def apply_citations(answer: str, hits: Sequence[SearchHit]) -> tuple[str, list[CitationRef]]:
     """Turn the `[n]` marks of `answer` into citations of `hits` (numbered from 1)."""
+    answer = _ESCAPED_MARK.sub(r"[\1]", answer)
     answer = _MARK_LIST.sub(
         lambda match: "".join(f"[{n.strip()}]" for n in match.group(1).split(",")), answer
     )

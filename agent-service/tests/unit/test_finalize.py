@@ -100,6 +100,17 @@ def test_lists_of_marks_are_split() -> None:
     assert len(citations) == 2
 
 
+def test_marks_escaped_as_markdown_count_too() -> None:
+    # Seen with a real model: it wrote the marks as \[1\], so the answer lost its sources.
+    answer, citations = apply_citations("Primero \\[1\\]. Ambos \\[1, 2\\].", [hit(1), hit(2)])
+
+    assert answer == "Primero [1]. Ambos [1][2]."
+    assert [c["document_id"] for c in citations] == [
+        "file:juan-plataforma:doc-1.md",
+        "file:juan-plataforma:doc-2.md",
+    ]
+
+
 def test_markdown_links_are_not_taken_as_marks() -> None:
     answer, citations = apply_citations("Ver [1](https://x.example) y [2].", [hit(1), hit(2)])
     assert answer == "Ver [1](https://x.example) y [1]."
