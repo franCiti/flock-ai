@@ -35,8 +35,27 @@ spring:
       # Offsets are committed after each record is processed (read copies are idempotent upserts).
       ack-mode: record
 
+  mvc:
+    # Errors as Problem Details, RFC 7807 (plan 6.2)
+    problemdetails:
+      enabled: true
+
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        # Session cookie (D16, plan 6.2). Browsers accept Secure cookies on http://localhost;
+        # SESSION_COOKIE_SECURE=false is only for other plain-HTTP development hosts.
+        http-only: true
+        same-site: strict
+        secure: ${SESSION_COOKIE_SECURE:true}
+
+# Initial user, created only when core.app_user is empty (plan 3.4).
+flock:
+  admin:
+    username: ${ADMIN_USERNAME:}
+    password: ${ADMIN_PASSWORD:}
 
 # Only the health endpoint is exposed; the details stay internal.
 management:

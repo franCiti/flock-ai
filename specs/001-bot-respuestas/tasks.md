@@ -293,7 +293,7 @@
   intermitente en esta PC (detalle en `docs/notas-entorno.md`).
   `V1` solo documenta el schema `core`; las tablas llegan con sus tareas.
 
-**[ ] T32 — Autenticación**
+**[x] T32 — Autenticación**
 - Spec: HU10.1 · Plan: 3.4, 6.2 · Depende de: T31
 - `app_user`, usuario inicial desde variables de entorno, login, logout, `me`, cookie de sesión, CSRF, documentación pública.
 - **Hecho cuando:** tests de login, `401` sin sesión, CSRF y acceso público a `/docs`; y en `web/`,
@@ -302,6 +302,11 @@
   reemplazar los tipos escritos a mano de `web/src/api/auth.ts` (`TODO(T32)`). El front espera que
   `GET /api/auth/me` entregue la cookie `XSRF-TOKEN` aun sin sesión, y que el login no exija más
   que `{ username, password }`.
+- **Nota (2026-10-15):** CSRF en modo SPA de Spring Security 7 con la cookie entregada en toda
+  respuesta (también en un 401). Al iniciar sesión cambian el id de sesión y el token CSRF (el nuevo
+  llega en la respuesta siguiente). El logout es el de Spring Security, por eso no figura en el OpenAPI
+  y el front lo llama sin el cliente generado. `test:api` se corrió contra la Core API en la PC con un
+  usuario temporal que después se borró: el `.env` no tiene `ADMIN_PASSWORD`.
 
 **[ ] T33 — Copias de lectura**
 - Spec: HU8, HU10 · Plan: 3.5, 6.5 · Depende de: T31

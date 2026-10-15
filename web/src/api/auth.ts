@@ -1,17 +1,8 @@
-import { ApiError, apiFetch } from './client.ts';
+import { ApiError, api, apiFetch } from './client.ts';
+import type { components } from './schema.ts';
 
-// TODO(T32): the Core API does not publish /api/auth/* yet, so these types and calls are written by
-// hand from plan 6.2 and 6.3. Once T32 adds the endpoints, regenerate the client (npm run
-// generate:api) and replace them with the generated `api` client.
-
-export interface Credentials {
-  username: string;
-  password: string;
-}
-
-export interface CurrentUser {
-  username: string;
-}
+export type Credentials = components['schemas']['LoginRequest'];
+export type CurrentUser = components['schemas']['CurrentUser'];
 
 /** The username or password is wrong. */
 export class InvalidCredentialsError extends Error {
@@ -23,23 +14,19 @@ export class InvalidCredentialsError extends Error {
 
 /** Returns the signed-in user, or null when there is no session. */
 export async function fetchCurrentUser(): Promise<CurrentUser | null> {
-  const response = await apiFetch('/api/auth/me');
+  const { data, response } = await api.GET('/api/auth/me');
   if (response.status === 401) {
     return null;
   }
-  if (!response.ok) {
+  if (!response.ok || data === undefined) {
     throw new ApiError(response.status);
   }
-  return (await response.json()) as CurrentUser;
+  return data;
 }
 
 /** Starts a session; the Core API sets the session cookie. */
 export async function login(credentials: Credentials): Promise<void> {
-  const response = await apiFetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credentials),
-  });
+  const { response } = await api.POST('/api/auth/login', { body: credentials });
   if (response.status === 401) {
     throw new InvalidCredentialsError();
   }
@@ -48,7 +35,10 @@ export async function login(credentials: Credentials): Promise<void> {
   }
 }
 
-/** Ends the session. */
+/**
+ * Ends the session. Spring Security answers it before any controller, so it is not in the
+ * OpenAPI spec and goes through the plain client.
+ */
 export async function logout(): Promise<void> {
   const response = await apiFetch('/api/auth/logout', { method: 'POST' });
   if (!response.ok) {

@@ -63,9 +63,9 @@ agente en Python con LangGraph, contrato público por Kafka, app Java + front Re
   guardado desde Outlook (`extract-msg` lee ese formato pero no lo crea).
 - Tests de integración (plan 8.1): `integration_stack` contra Docker Compose (mTLS real) y
   `integration_containers` con Testcontainers (lógica sobre tablas).
-- **T40 (front) se hizo antes que T31 y T32** a pedido. El login usa tipos escritos a mano
-  (`TODO(T32)` en `web/src/api/auth.ts`) y `npm run test:api` (login contra la Core API real)
-  **falla a propósito hasta la T32**; no forma parte de `npm test` ni de `scripts/check.sh`.
+- **T40 (front) se hizo antes que T31 y T32** a pedido; desde la T32 el login usa los tipos generados.
+  `npm run test:api` (login contra la Core API real) necesita la Core API levantada y
+  `ADMIN_USERNAME`/`ADMIN_PASSWORD`; no forma parte de `npm test` ni de `scripts/check.sh`.
 
 ## Entorno
 

@@ -50,6 +50,12 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Session login, CSRF (D16, plan 6.2) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
         <!-- PostgreSQL, schema "core", migrated with Flyway (plan 7.3) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -88,6 +94,11 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
@@ -113,6 +124,11 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Same as the tests (surefire below): the JDK's internal pipes (Tomcat, Kafka)
+                         on Windows, out of the temporary folder. -->
+                    <jvmArguments>-Djdk.net.unixdomain.tmpdir=${project.build.directory}</jvmArguments>
+                </configuration>
             </plugin>
 
             <plugin>

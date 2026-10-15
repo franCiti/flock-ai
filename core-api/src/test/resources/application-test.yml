@@ -1,0 +1,5 @@
+# Profile of the integration tests (@IntegrationTest): containers come from TestInfrastructure.
+flock:
+  admin:
+    username: admin
+    password: test-admin-password

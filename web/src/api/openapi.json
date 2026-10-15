@@ -4,6 +4,90 @@
     "title" : "OpenAPI definition",
     "version" : "v0"
   },
-  "paths" : { },
-  "components" : { }
+  "tags" : [ {
+    "name" : "auth",
+    "description" : "Session of the web app (cookie)"
+  } ],
+  "paths" : {
+    "/api/auth/login" : {
+      "post" : {
+        "tags" : [ "auth" ],
+        "summary" : "Sign in: opens a session (cookie)",
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Signed in"
+          },
+          "401" : {
+            "description" : "Wrong username or password"
+          }
+        }
+      }
+    },
+    "/api/auth/me" : {
+      "get" : {
+        "tags" : [ "auth" ],
+        "summary" : "The signed-in user",
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "description" : "There is a session",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CurrentUser"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "No session",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CurrentUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "LoginRequest" : {
+        "type" : "object",
+        "properties" : {
+          "username" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "password" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "password", "username" ]
+      },
+      "CurrentUser" : {
+        "type" : "object",
+        "properties" : {
+          "username" : {
+            "type" : "string"
+          }
+        }
+      }
+    }
+  }
 }
