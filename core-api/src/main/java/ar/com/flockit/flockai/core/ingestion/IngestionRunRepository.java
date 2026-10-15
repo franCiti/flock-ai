@@ -1,10 +1,18 @@
 package ar.com.flockit.flockai.core.ingestion;
 
+import ar.com.flockit.flockai.core.contract.IngestionEvent;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Read copy of the knowledge updates, table {@code core.ingestion_run_view} (plan 3.4, 3.5).
@@ -15,10 +23,70 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class IngestionRunRepository {
 
-    private final JdbcClient jdbc;
+    /**
+     * A knowledge update as the web app shows it (spec HU4.5).
+     *
+     * @param trigger {@code scheduled} or {@code manual}; null if the Core API did not request it
+     * @param status {@code requested}, {@code running}, {@code completed}, {@code failed} or {@code rejected}
+     * @param personas summary of each updated persona, by persona id
+     * @param reason why it failed or was rejected
+     */
+    public record IngestionRun(
+            UUID jobId,
+            String trigger,
+            String status,
+            Instant requestedAt,
+            Instant startedAt,
+            Instant finishedAt,
+            IngestionEvent.Totals totals,
+            List<IngestionEvent.PersonaSummary> personas,
+            List<String> removedPersonas,
+            String reason) {}
 
-    public IngestionRunRepository(JdbcClient jdbc) {
+    private static final TypeReference<Map<String, IngestionEvent.PersonaSummary>> PERSONAS = new TypeReference<>() {};
+    private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {};
+
+    private final JdbcClient jdbc;
+    private final JsonMapper mapper;
+
+    public IngestionRunRepository(JdbcClient jdbc, JsonMapper mapper) {
         this.jdbc = jdbc;
+        this.mapper = mapper;
+    }
+
+    /** The latest updates, newest first (by when they were requested or started). */
+    public List<IngestionRun> findRecent(int limit) {
+        return jdbc.sql("""
+                        SELECT job_id, trigger, status, requested_at, started_at, finished_at,
+                               totals::text AS totals, personas::text AS personas,
+                               removed_personas::text AS removed_personas, reason
+                        FROM ingestion_run_view
+                        ORDER BY coalesce(requested_at, started_at) DESC NULLS LAST, job_id
+                        LIMIT ?
+                        """).param(limit).query(this::toRun).list();
+    }
+
+    private IngestionRun toRun(ResultSet row, int rowNumber) throws SQLException {
+        String totals = row.getString("totals");
+        List<IngestionEvent.PersonaSummary> personas =
+                mapper.readValue(row.getString("personas"), PERSONAS).values().stream()
+                        .sorted(Comparator.comparing(IngestionEvent.PersonaSummary::personaId))
+                        .toList();
+        return new IngestionRun(
+                row.getObject("job_id", UUID.class),
+                row.getString("trigger"),
+                row.getString("status"),
+                instant(row.getTimestamp("requested_at")),
+                instant(row.getTimestamp("started_at")),
+                instant(row.getTimestamp("finished_at")),
+                totals == null ? null : mapper.readValue(totals, IngestionEvent.Totals.class),
+                personas,
+                mapper.readValue(row.getString("removed_personas"), STRINGS),
+                row.getString("reason"));
+    }
+
+    private static Instant instant(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant();
     }
 
     /** The Core API published the job (T35): the run exists before the ingestion answers. */

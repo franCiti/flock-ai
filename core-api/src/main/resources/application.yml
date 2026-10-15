@@ -51,8 +51,11 @@ server:
         same-site: strict
         secure: ${SESSION_COOKIE_SECURE:true}
 
-# Initial user, created only when core.app_user is empty (plan 3.4).
 flock:
+  # Knowledge updates (D31): one every INGESTION_INTERVAL, besides the manual ones.
+  ingestion:
+    interval: ${INGESTION_INTERVAL:30m}
+  # Initial user, created only when core.app_user is empty (plan 3.4).
   admin:
     username: ${ADMIN_USERNAME:}
     password: ${ADMIN_PASSWORD:}

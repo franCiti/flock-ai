@@ -5,10 +5,74 @@
     "version" : "v0"
   },
   "tags" : [ {
+    "name" : "ingestion",
+    "description" : "Knowledge updates"
+  }, {
     "name" : "auth",
     "description" : "Session of the web app (cookie)"
   } ],
   "paths" : {
+    "/api/ingestion/runs" : {
+      "get" : {
+        "tags" : [ "ingestion" ],
+        "summary" : "History of the knowledge updates, newest first",
+        "operationId" : "history",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/IngestionRun"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "ingestion" ],
+        "summary" : "Update the knowledge base now",
+        "operationId" : "request",
+        "responses" : {
+          "202" : {
+            "description" : "Requested; its progress shows in the history",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RequestedRun"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Kafka is not available",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RequestedRun"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login" : {
       "post" : {
         "tags" : [ "auth" ],
@@ -66,6 +130,15 @@
   },
   "components" : {
     "schemas" : {
+      "RequestedRun" : {
+        "type" : "object",
+        "properties" : {
+          "jobId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "LoginRequest" : {
         "type" : "object",
         "properties" : {
@@ -79,6 +152,153 @@
           }
         },
         "required" : [ "password", "username" ]
+      },
+      "IngestionRun" : {
+        "type" : "object",
+        "properties" : {
+          "jobId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "trigger" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "requestedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/Totals"
+          },
+          "personas" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PersonaSummary"
+            }
+          },
+          "removedPersonas" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PersonaSummary" : {
+        "type" : "object",
+        "properties" : {
+          "personaId" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "added" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "modified" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "deleted" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unchanged" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "secretsMasked" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "skipped" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SkippedFile"
+            }
+          },
+          "sourceErrors" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SourceError"
+            }
+          }
+        }
+      },
+      "SkippedFile" : {
+        "type" : "object",
+        "properties" : {
+          "path" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SourceError" : {
+        "type" : "object",
+        "properties" : {
+          "sourceId" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Totals" : {
+        "type" : "object",
+        "properties" : {
+          "personas" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "added" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "modified" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "deleted" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unchanged" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "secretsMasked" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sourceErrors" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
       },
       "CurrentUser" : {
         "type" : "object",

@@ -328,10 +328,14 @@
   hasta la etapa 3 (`TODO(T49)`). En Compose el servicio `ingestion` ya no tiene perfil y tiene
   healthcheck por latido. `OffsetTracker` pasó a `common/kafka.py` (lo comparten los dos workers).
 
-**[ ] T35 — Disparo de la ingesta**
+**[x] T35 — Disparo de la ingesta**
 - Spec: HU4.8 · Plan: 6.3, 6.5 · Depende de: T33, T34
 - Scheduler cada `INGESTION_INTERVAL`, `POST /api/ingestion/runs`, `GET /api/ingestion/runs`.
 - **Hecho cuando:** tests del scheduler y de los endpoints.
+- **Nota (2026-10-15):** la corrida queda como `requested` en `ingestion_run_view` apenas la Core API
+  publica el job; si Kafka no lo confirma, pasa a `failed` y la API responde 503. El primer job
+  programado sale un intervalo después de arrancar. El job todavía no lleva fuentes externas
+  (`TODO(T47)`). `GET /api/ingestion/runs?limit=` (1–100, por defecto 20), del más nuevo al más viejo.
 
 **[ ] T36 — Chat: de HTTP a Kafka**
 - Spec: HU6, HU10 · Plan: 6.3, 6.4 · Depende de: T32

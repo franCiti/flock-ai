@@ -1,5 +1,9 @@
 # Profile of the integration tests (@IntegrationTest): containers come from TestInfrastructure.
 flock:
+  # Tests request updates themselves.
+  ingestion:
+    scheduler:
+      enabled: false
   admin:
     username: admin
     password: test-admin-password
