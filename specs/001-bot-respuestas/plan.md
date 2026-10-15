@@ -102,9 +102,9 @@ agent-service/
 │   │   ├── connectors/
 │   │   │   ├── base.py           SourceConnector interface (D19)
 │   │   │   ├── files/            FileStore (local, SharePoint) + parsers (D20)
-│   │   │   ├── jira.py           via MCP (D30)
-│   │   │   └── confluence.py     via MCP (D30)
-│   │   ├── mcp_client.py       shared MCP client setup
+│   │   │   ├── jira.py           Jira Cloud REST API (D43)
+│   │   │   └── confluence.py     Confluence Cloud REST API (D43)
+│   │   ├── http_client.py      shared HTTP client: auth, pagination, retries (D43)
 │   │   ├── personas.py         persona folders and profile files (HU9)
 │   │   ├── pipeline.py         sync: changes → redaction → chunks → embeddings → store
 │   │   ├── worker.py           consumes ingestion.jobs, publishes ingestion.events (D31)
@@ -148,7 +148,7 @@ agent-service/
 | Kafka | `aiokafka` (asíncrono, soporta mTLS) |
 | Postgres + vectores | `psycopg` 3 + `pgvector` |
 | Embeddings locales | `fastembed` |
-| MCP | `mcp` (SDK oficial) + `langchain-mcp-adapters` |
+| Jira, Confluence y SharePoint (D43) | `httpx` (asíncrono) + `msal` (credenciales de aplicación de Microsoft) |
 | Configuración y validación | `pydantic`, `pydantic-settings` |
 | Parsers | `pypdf`, `python-docx`, `extract-msg` (.msg), `email` de la librería estándar (.eml), `charset-normalizer` (detectar archivos de texto por contenido) |
 | Certificados del proxy corporativo | `truststore` |
@@ -249,6 +249,7 @@ examples/knowledge/          fictional personas versioned in the repo, used by d
   display_name: Juan Pérez
   identities:
     email: juan.perez@example.com
+    atlassian_account_id: 5b10ac8d82e05b22cc7d4ef5  # optional (D43)
   ---
   Free notes for the operator (not used as knowledge).
   ```
@@ -539,7 +540,7 @@ ingestion_run        meta
 |---|---|---|
 | `id` | text PK | Nombre de la carpeta (`juan-plataforma`) |
 | `display_name` | text | Del perfil `persona.md` |
-| `identities` | jsonb | `{ "email": "…" }`, para el filtro por autor (D30) |
+| `identities` | jsonb | `{ "email": "…", "atlassian_account_id": "…" }`, para el filtro por autor (D30, D43) |
 | `profile_hash` | text | Para detectar cambios en el perfil |
 | `created_at`, `updated_at` | timestamptz | |
 
@@ -988,7 +989,7 @@ class FileStore(Protocol):
 | `FileStore` | Uso | Cómo detecta cambios |
 |---|---|---|
 | `LocalFolderStore` | Carpeta de cada persona | Snapshot `{ruta: (fecha de modificación, tamaño)}` en el cursor |
-| `SharePointStore` | Fuente externa SharePoint, vía MCP (5.4) | Fecha de modificación de cada archivo del sitio/carpeta |
+| `SharePointStore` | Fuente externa SharePoint, con Microsoft Graph (5.4) | `deltaLink` de Graph: cambios y bajas del sitio/carpeta |
 
 **Archivos que se ignoran siempre:** `persona.md` (es el perfil, HU9.3), ocultos (`.algo`) y
 temporales de Office (`~$algo.docx`).
@@ -1011,40 +1012,42 @@ temporales de Office (`~$algo.docx`).
 - **Citas de archivos locales:** no tienen una URL que el navegador pueda abrir, así que se citan
   por su **ruta relativa** (`path`) y `url` queda en `null` (ver 5.9).
 
-### 5.4 Fuentes externas vía MCP (D30, D39)
+### 5.4 Fuentes externas con sus APIs REST (D30, D39, D43)
 
 **Arquitectura:**
-- Cada servidor MCP corre como **un contenedor más** del Docker Compose, con las credenciales de la
-  cuenta de servicio en su configuración (D39). El Ingestion Worker se conecta a ellos por HTTP.
-- Un `McpClient` compartido maneja la conexión, la paginación y los reintentos con espera creciente
-  cuando el sistema limita la cantidad de pedidos.
-- La **identidad de la persona** en cada sistema sale de `identities.email` del perfil (HU12.8).
-  Si falta, sus fuentes externas no se procesan y se informa.
+- El Ingestion Worker lee cada sistema con su **API REST** (D43; el spike de T46 descartó los
+  servidores MCP, ver `docs/spike-fuentes-externas.md`): Jira y Confluence Cloud con la cuenta de
+  servicio de Atlassian (token con alcance, por `api.atlassian.com/ex/{producto}/{cloudId}`) y
+  SharePoint con Microsoft Graph (app de Entra ID con certificado, permiso `Sites.Selected` de solo
+  lectura otorgado sitio por sitio). Las credenciales están en el `.env` del worker (D39).
+- Un cliente HTTP compartido (`httpx`) maneja la autenticación, la paginación y los reintentos con
+  espera creciente ante 429/503 (`Retry-After`, o `X-RateLimit-Reset` en Atlassian).
+- La **identidad de la persona** sale del perfil (HU12.8): Jira y Confluence filtran por
+  `identities.atlassian_account_id`; si falta, se busca por `identities.email` (puede fallar si la
+  persona ocultó su email en Atlassian). SharePoint resuelve el usuario de Entra desde el email.
+  Sin identidad que sirva, las fuentes de ese sistema no se procesan y se informa.
 
 **Qué se trae de cada sistema** (HU12.7):
 
 | Conector | Consulta | Documento resultante |
 |---|---|---|
-| **Jira** | JQL: `project = <scope> AND (reporter = <persona> OR assignee = <persona>)`, ordenado por fecha de actualización | Un documento por issue: `KEY: resumen`, metadatos (estado, resolución, fechas), descripción y **todos los comentarios** con autor y fecha. URL del issue |
-| **Confluence** | CQL: `space = <scope> AND (creator = <persona> OR contributor = <persona>)` | Un documento por página: título, ruta de páginas padre como sección, cuerpo convertido a Markdown. URL de la página |
-| **SharePoint** | Archivos del sitio/carpeta de `scope` creados o modificados por la persona | Pasan por los **mismos parsers** que los archivos locales (5.3). URL del archivo |
+| **Jira** | JQL (`POST /rest/api/3/search/jql` con `nextPageToken`): `project = <scope> AND (reporter = <accountId> OR assignee = <accountId>)`, ordenado por fecha de actualización; comentarios con `/issue/{key}/comment` | Un documento por issue: `KEY: resumen`, metadatos (estado, resolución, fechas), descripción y **todos los comentarios** con autor y fecha. URL del issue |
+| **Confluence** | CQL (v1 `/wiki/rest/api/search` con cursor): `space = <scope> AND (creator = <accountId> OR contributor = <accountId>)`; cuerpo y ancestros con la API v2 | Un documento por página: título, ruta de páginas padre como sección, cuerpo convertido a Markdown. URL de la página |
+| **SharePoint** | Archivos del sitio/carpeta de `scope` subidos por la persona (`createdBy`), con delta de Graph | Pasan por los **mismos parsers** que los archivos locales (5.3). URL del archivo |
 
 **Detección de cambios y bajas:**
-- **Cambios:** el cursor guarda la última fecha de actualización vista; se piden solo los elementos
-  modificados desde entonces.
-- **Bajas:** las consultas incrementales no muestran lo que se borró o dejó de corresponder (un
-  issue reasignado a otra persona, por ejemplo). Por eso, en cada actualización se pide además la
-  **lista de identificadores** que cumplen la consulta (sin contenido, es barato) y se borran los
-  documentos que ya no aparecen.
+- **Cambios:** en Jira y Confluence, el cursor guarda la última fecha de actualización vista y se
+  piden solo los elementos modificados desde entonces; en SharePoint, el cursor es el `deltaLink`
+  de Graph, que también informa las bajas (si vence, se enumera todo de nuevo).
+- **Bajas (Jira y Confluence):** las consultas incrementales no muestran lo que se borró o dejó de
+  corresponder (un issue reasignado a otra persona, por ejemplo). Por eso, en cada actualización se
+  pide además la **lista de identificadores** que cumplen la consulta (sin contenido, es barato) y
+  se borran los documentos que ya no aparecen.
 
-**Riesgo (D30): elegir los servidores MCP.** Hay que verificar que el servidor de cada sistema:
-1. funcione con cuenta de servicio (sin login interactivo),
-2. permita búsquedas JQL/CQL con paginación y traer comentarios,
-3. permita listar y descargar archivos de SharePoint con sus autores.
-
-Esto se resuelve con una **tarea de investigación (spike) al inicio de la etapa 3**, evaluando el
-servidor oficial de cada proveedor y alternativas de la comunidad. Si alguno no cumple, ese conector
-usa la API REST del sistema directamente, sin cambiar la interfaz `SourceConnector`.
+**Riesgo resuelto (D30, R1):** el spike de T46 evaluó los servidores MCP oficiales y de la
+comunidad de cada sistema; ninguno cumple con cuenta de servicio, paginación completa de JQL/CQL y
+archivos de SharePoint con autor y delta a la vez, así que los tres conectores usan la API REST
+(D43), sin cambiar la interfaz `SourceConnector`.
 
 ### 5.5 Pipeline por documento
 
@@ -1315,7 +1318,7 @@ Cada usuario lee con su propio *consumer group* (`core-api`, `agent`, `ingestion
 |---|---|
 | `OPENROUTER_API_KEY` | `.env` → solo el contenedor `agent` |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | `.env` → solo `core-api` (solo se usan para crear el usuario inicial) |
-| Cuentas de servicio de Jira, Confluence y SharePoint (D39) | `.env` → solo los contenedores de los servidores MCP |
+| Cuentas de servicio de Atlassian y certificado de la app de Microsoft (D39, D43) | `.env` → solo el contenedor `ingestion` |
 | Claves privadas de los certificados | `infra/certs/out/` → cada contenedor monta solo la suya |
 
 - Nada de esto entra en git ni en las imágenes de Docker.
@@ -1331,8 +1334,8 @@ Cada usuario lee con su propio *consumer group* (`core-api`, `agent`, `ingestion
 │  web (nginx) ──> core-api ──┐                                           │
 │     :8080 (PC)              │                                           │
 │                             ├──> kafka ──> agent ────> OpenRouter (internet)
-│  cli (en la PC) ─ :9093 ───>┘      │    └─> ingestion ──> mcp-atlassian  │
-│                                    │           │      └─> mcp-sharepoint │
+│  cli (en la PC) ─ :9093 ───>┘      │    └─> ingestion ──> Atlassian Cloud│
+│                                    │           │      └─> Microsoft Graph│
 │                             postgres <─────────┘                         │
 │                               :5433 (PC, opcional)                       │
 │                                                                         │
@@ -1350,8 +1353,8 @@ Cada usuario lee con su propio *consumer group* (`core-api`, `agent`, `ingestion
 - **Volúmenes:** datos de Postgres y de Kafka, caché del modelo de embeddings (compartida entre
   `agent` e `ingestion`) y `data/knowledge` montada **solo** en `ingestion`, con escritura (para crear
   perfiles, 5.7). El agente no accede a los archivos: solo a la base.
-- **Perfiles de Compose:** los servidores MCP están en el perfil `external-sources` y solo se
-  levantan en la etapa 3 o cuando se pide explícitamente.
+- **Fuentes externas:** no hay contenedores para ellas; el Ingestion Worker sale por HTTPS a
+  Atlassian Cloud y Microsoft Graph (D43).
 
 **Imágenes propias:**
 
@@ -1376,11 +1379,12 @@ fallarían. Cada Dockerfile agrega a la lista de confianza los `.crt` que haya e
 - La Core API expone su estado con Spring Boot Actuator (`/actuator/health`, interno). Los workers
   informan su estado con el *healthcheck* de Docker.
 
-### 7.7 Excepción a D17: servidores MCP (D40)
+### 7.7 Conexiones a Atlassian y Microsoft (D43)
 
-Los servidores MCP son software de terceros y, en general, **no soportan mTLS**. La conexión
-Ingestion Worker → servidor MCP va **sin mTLS**, dentro de la red interna de Docker y sin puertos
-expuestos a la PC.
+El Ingestion Worker se conecta a Atlassian Cloud y a Microsoft Graph por **HTTPS**, con las
+credenciales de sus cuentas de servicio; no hay servidores MCP en la red de Docker, así que la
+excepción a mTLS de D40 ya no aplica. Si la red inspecciona HTTPS, el certificado raíz de 7.8 vale
+también para estas conexiones.
 
 ### 7.8 Certificado raíz corporativo (opcional)
 
@@ -1546,7 +1550,7 @@ cerrar cada etapa, junto con la evaluación (D41).
 |---|---|---|---|
 | **1. Núcleo** | Contrato, infraestructura (Kafka y Postgres con mTLS), ingesta de carpetas, Agent Worker completo, auditoría, cliente `flock-ask` | Preguntas por línea de comandos sobre `examples/knowledge` | Tests en verde + evaluación + humo (D41) |
 | **2. Core API y front** | Login, chat con streaming y cuenta regresiva, auditoría en pantalla, actualización programada y manual, documentación publicada | Demo en el navegador | Ídem |
-| **3. Fuentes externas** | Spike de servidores MCP, conectores de Jira, Confluence y SharePoint, administración de fuentes en el front | Respuestas que citan issues y páginas reales | Ídem |
+| **3. Fuentes externas** | Spike de servidores MCP (resultado: APIs REST, D43), conectores de Jira, Confluence y SharePoint, administración de fuentes en el front | Respuestas que citan issues y páginas reales | Ídem |
 
 Cada etapa deja algo **funcionando y demostrable**; la siguiente se apoya en ella sin rehacerla.
 
@@ -1554,7 +1558,7 @@ Cada etapa deja algo **funcionando y demostrable**; la siguiente se apoya en ell
 
 | # | Riesgo | Impacto | Mitigación |
 |---|---|---|---|
-| R1 | Los servidores MCP no permiten cuenta de servicio, JQL/CQL completos o listar SharePoint con autores (D30) | Alto en etapa 3 | Spike al inicio de la etapa 3; si no cumplen, API REST directa detrás de la misma interfaz (5.4) |
+| R1 | Los servidores MCP no permiten cuenta de servicio, JQL/CQL completos o listar SharePoint con autores (D30) | **Resuelto** | El spike (T46) confirmó el riesgo: los tres conectores usan la API REST (D43) |
 | R2 | Calidad o latencia del modelo vía OpenRouter; no todos los modelos soportan bien salida estructurada | Alto | Modelo configurable; comparación con `flock-eval --models` al cerrar cada etapa (8.6) |
 | R3 | Prompts y parámetros se ajustan "a ciegas" entre cierres de etapa, porque la evaluación con LLM real solo corre al cerrarlas (D41) | Medio | Tests exhaustivos con LLM falso; los ajustes de calidad se concentran en el cierre de cada etapa |
 | R4 | Los embeddings locales rinden mal en español o con texto técnico | Medio | Búsqueda híbrida (4.3); la evaluación compara con un modelo más grande; cambiarlo implica solo reindexar |

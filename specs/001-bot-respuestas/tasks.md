@@ -463,11 +463,18 @@
 
 ## Etapa 3 — Fuentes externas
 
-**[ ] T46 — Spike: servidores MCP**
+**[x] T46 — Spike: servidores MCP**
 - Plan: 5.4 (riesgo R1) · Decisiones: D30
 - Evaluar servidores MCP para Jira, Confluence y SharePoint: cuenta de servicio, JQL/CQL con
   paginación y comentarios, listado de archivos con autores.
 - **Hecho cuando:** un documento en `docs/` con el resultado y la elección (MCP o API REST) para cada sistema, registrada en las decisiones.
+- **Nota (2026-10-15):** resultado en `docs/spike-fuentes-externas.md`: ningún servidor MCP sirve
+  para un sync desatendido, así que los tres conectores usan la API REST (D43, acordado con
+  Francisco): Jira y Confluence Cloud con la cuenta de servicio de Atlassian, SharePoint con
+  Microsoft Graph y credenciales de aplicación. El perfil suma `identities.atlassian_account_id`
+  opcional (si falta, se busca por email). Solo Atlassian Cloud. D40 queda sin efecto. Se
+  actualizaron el plan (1.x, 5.3, 5.4, 7.4, 7.5, 7.7, 9.1, R1) y T49–T52. Lo que falta verificar
+  con cuentas reales está en el documento.
 
 **[ ] T47 — Administración de fuentes en la Core API**
 - Spec: HU12.1, HU12.4 · Plan: 3.4, 6.3 · Depende de: T35
@@ -478,10 +485,13 @@
 - Spec: HU12.1 · Plan: 6.6 · Depende de: T42, T47
 - **Hecho cuando:** tests de alta y baja con API simulada.
 
-**[ ] T49 — Cliente MCP y servicios en Compose**
-- Plan: 5.4, 7.5, 7.7 · Depende de: T46
-- `McpClient` (paginación, reintentos), servidores MCP en el perfil `external-sources`, cuentas de servicio en `.env`.
-- **Hecho cuando:** el Ingestion Worker se conecta a cada servidor y lista sus herramientas.
+**[ ] T49 — Cliente HTTP de fuentes externas**
+- Plan: 5.4, 7.4, 7.7 · Decisiones: D43 · Depende de: T46
+- Cliente `httpx` compartido: autenticación de Atlassian (token con alcance, `cloudId`) y de
+  Microsoft (MSAL con certificado), paginación y reintentos ante 429/503; credenciales en el `.env`
+  del Ingestion Worker; resolución de la identidad (accountId, usuario de Entra).
+- **Hecho cuando:** tests con respuestas simuladas de paginación, 429 con espera, token vencido y
+  resolución de identidad (incluido el email que no se encuentra).
 
 **[ ] T50 — Conector de Jira**
 - Spec: HU12.2, HU12.3, HU12.7 · Plan: 5.4 · Depende de: T49
@@ -493,8 +503,9 @@
 
 **[ ] T52 — Conector de SharePoint**
 - Spec: HU12.2, HU12.3, HU12.7 · Plan: 5.3, 5.4 · Depende de: T49
-- `SharePointStore` reutilizando los parsers.
-- **Hecho cuando:** tests con respuestas simuladas: filtro por autor, cambios y bajas.
+- `SharePointStore` con Microsoft Graph (delta) reutilizando los parsers.
+- **Hecho cuando:** tests con respuestas simuladas: filtro por autor, cambios y bajas (delta),
+  `deltaLink` vencido.
 
 **[ ] T53 — Cierre de la etapa 3** ⚠️ usa la API key
 - Plan: 8.5, 9.1 · Depende de: T48, T50–T52

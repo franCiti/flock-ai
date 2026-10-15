@@ -180,7 +180,7 @@ Responde siempre que el servicio esté levantado; no hay lógica de disponibilid
 Una carpeta raíz con **una subcarpeta por persona virtual**; el nombre de la subcarpeta es el `personaId`.
 *Originalmente:* comando manual y sin Kafka. Ver D31.
 
-### D30 — Jira, Confluence y SharePoint se leen vía MCP, solo para ingesta · Aceptada
+### D30 — Jira, Confluence y SharePoint se leen vía MCP, solo para ingesta · Aceptada ("vía MCP": reemplazado por D43)
 La ingesta usa clientes MCP contra servidores MCP de cada sistema para leer su contenido y
 construir la base de conocimiento. Cada uno es una implementación más de la interfaz de
 conectores (D19). El agente **no** consulta estas fuentes en vivo mientras responde.
@@ -217,7 +217,7 @@ Jira, Confluence y SharePoint se leen con una cuenta de servicio por sistema, co
 `.env` del Ingestion Worker. Las credenciales no viajan por Kafka, no se guardan en la base y la
 interfaz no las maneja. El filtro por autor (D30) limita el contenido de cada persona.
 
-### D40 — Excepción a D17: servidores MCP sin mTLS · Aceptada
+### D40 — Excepción a D17: servidores MCP sin mTLS · Sin efecto (D43: no hay servidores MCP)
 La conexión Ingestion Worker → servidores MCP (software de terceros, en general sin soporte de mTLS)
 va sin certificado de cliente, solo dentro de la red interna de Docker y sin puertos expuestos.
 **Alternativa descartada:** un proxy con mTLS delante de cada servidor MCP (un contenedor más por servidor).
@@ -268,6 +268,22 @@ que la Core API más usa.
 **Alternativas descartadas:** combinar `jsonschema2pojo` con clases a mano (dos estilos mezclados) y
 `openapi-generator` envolviendo los esquemas en un documento OpenAPI (frágil con draft-07 y agrega
 complejidad al build).
+
+### D43 — Jira, Confluence y SharePoint se leen con sus APIs REST, no vía MCP · Aceptada
+El spike de la etapa 3 (T46, `docs/spike-fuentes-externas.md`) no encontró servidores MCP que
+cumplan lo que pide un sync desatendido: Jira y Confluence se leen con sus APIs REST de Cloud
+(búsqueda JQL con `nextPageToken`, CQL con cursor, comentarios y ancestros) y SharePoint con
+Microsoft Graph (credenciales de aplicación con `Sites.Selected` de solo lectura y delta). Los
+conectores siguen detrás de la misma interfaz (D19) y las cuentas de servicio siguen en el `.env`
+del Ingestion Worker (D39). Cambia la parte "vía MCP" de D30 (la autoría y el "solo para ingesta"
+siguen) y deja sin efecto D40. El perfil de la persona suma `atlassian_account_id` opcional, porque
+JQL y CQL de Cloud filtran por accountId; si falta, se busca por email.
+**Motivo:** los servidores MCP oficiales piden un usuario con sesión (Microsoft) o son remotos con
+paginación poco confiable y solo Cloud (Atlassian Rovo); los de la comunidad no paginan CQL, topean
+los comentarios, no aceptan tokens de cuentas de servicio o no tienen credenciales de aplicación ni
+delta. Además, MCP está pensado para consultas puntuales de un LLM, no para recorrer todo el contenido.
+**Alternativas descartadas:** `sooperset/mcp-atlassian` para Jira solamente (topes y tokens), un fork
+de `Softeria/ms-365-mcp-server` con credenciales de aplicación (código Node propio para mantener).
 
 ---
 

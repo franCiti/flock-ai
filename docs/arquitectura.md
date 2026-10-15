@@ -10,7 +10,7 @@ mensajes en Kafka; cualquier app puede consumirlo. La app Java y el front son un
 más: están en el MVP para demostrarlo y administrar fuentes, pero el bot no depende de ellos.
 
 **Orden de construcción (D27):** (1) núcleo: bot por Kafka + cliente CLI, (2) app Java + front,
-(3) fuentes externas vía MCP.
+(3) fuentes externas (Jira, Confluence y SharePoint, con sus APIs REST, D43).
 
 ## MVP — etapa 1: núcleo
 
@@ -112,9 +112,9 @@ App cliente               Kafka                    Agent Worker               Po
                                │
                                │── ingestion.jobs ──> Kafka ──> Ingestion Worker (Python)
                                │<─ ingestion.events ─ Kafka <──┘   │
-                                                                   │ cliente MCP
+                                                                   │ HTTPS (APIs REST)
                                                                    v
-                                               servidores MCP de Jira · Confluence · SharePoint
+                                       Jira · Confluence (Atlassian Cloud) · SharePoint (Graph)
 
  Documentación: Swagger UI (API REST, D32) · AsyncAPI en contracts/ (Kafka, D33)
 ```
@@ -122,8 +122,9 @@ App cliente               Kafka                    Agent Worker               Po
 - **Core API (Java):** cliente del agente como cualquier otro (D23). Login con Spring Security y
   usuario en tabla (D16); guarda las fuentes de cada persona; retransmite las respuestas al front por SSE.
 - **Frontend (React):** chat con cuenta regresiva y administración de fuentes (D10).
-- **Fuentes externas vía MCP (D30):** la ingesta lee Jira, Confluence y SharePoint a través de
-  servidores MCP, solo para construir la base, tomando solo lo escrito por la persona.
+- **Fuentes externas (D30, D43):** la ingesta lee Jira y Confluence con la API REST de Atlassian
+  Cloud y SharePoint con Microsoft Graph, con cuentas de servicio, solo para construir la base y
+  tomando solo lo escrito por la persona. El spike de T46 descartó los servidores MCP.
 - **Disparo de la ingesta (D31):** la Core API la programa cada 30 minutos y desde el botón de la
   interfaz, publicando en `ingestion.jobs`. En la etapa 1 se usa el comando manual.
 
