@@ -3,6 +3,7 @@ import { setupServer } from 'msw/node';
 import type { AuditPage } from '../api/audit.ts';
 import type { Credentials, CurrentUser } from '../api/auth.ts';
 import type { Persona } from '../api/chat.ts';
+import { CSRF_COOKIE, CSRF_HEADER, readCookie } from '../api/csrf.ts';
 import type { IngestionRun } from '../api/ingestion.ts';
 
 /** Simulated Core API. Every test starts without handlers; unknown requests fail. */
@@ -11,24 +12,57 @@ export const server = setupServer();
 export const testUser: CurrentUser = { username: 'demo' };
 export const validCredentials: Credentials = { username: 'demo', password: 'demo-password' };
 
-/** Session endpoints that behave like the Core API: a valid login opens a session. */
+/** Clears the CSRF cookie the simulated Core API hands out. */
+export function clearCsrfCookie() {
+  document.cookie = `${CSRF_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+}
+
+/**
+ * Session endpoints that behave like the Core API: a valid login opens a session, every response
+ * hands out the CSRF cookie when there is none, login and logout clear it, and a POST without the
+ * token in its header gets a 403.
+ */
 export function mockAuthApi(options: { signedIn?: boolean } = {}) {
   let signedIn = options.signedIn ?? false;
+  let token = 0;
   const loginBodies: unknown[] = [];
 
+  const handOutToken = () => {
+    if (readCookie(CSRF_COOKIE) === undefined) {
+      token += 1;
+      document.cookie = `${CSRF_COOKIE}=token-${String(token)}; path=/`;
+    }
+  };
+  const hasToken = (request: Request) => {
+    const cookie = readCookie(CSRF_COOKIE);
+    return cookie !== undefined && request.headers.get(CSRF_HEADER) === cookie;
+  };
+
   server.use(
-    http.get('*/api/auth/me', () =>
-      signedIn ? HttpResponse.json(testUser) : new HttpResponse(null, { status: 401 }),
-    ),
+    http.get('*/api/auth/me', () => {
+      handOutToken();
+      return signedIn ? HttpResponse.json(testUser) : new HttpResponse(null, { status: 401 });
+    }),
     http.post('*/api/auth/login', async ({ request }) => {
+      if (!hasToken(request)) {
+        return new HttpResponse(null, { status: 403 });
+      }
       const body = (await request.json()) as Credentials;
       loginBodies.push(body);
       signedIn =
         body.username === validCredentials.username && body.password === validCredentials.password;
+      if (signedIn) {
+        // A new session gets a new token, handed out with the next response.
+        clearCsrfCookie();
+      }
       return new HttpResponse(null, { status: signedIn ? 204 : 401 });
     }),
-    http.post('*/api/auth/logout', () => {
+    http.post('*/api/auth/logout', ({ request }) => {
+      if (!hasToken(request)) {
+        return new HttpResponse(null, { status: 403 });
+      }
       signedIn = false;
+      clearCsrfCookie();
       return new HttpResponse(null, { status: 204 });
     }),
   );

@@ -24,6 +24,7 @@ La primera vez, dos contenedores de un solo uso preparan todo:
 | `agent` | — | Agent Worker (`flock-agent`), imagen `agent-service/Dockerfile`. Sano cuando su bucle de Kafka está vivo |
 | `ingestion` | — | Ingestion Worker (`flock-ingest worker`, consume `ingestion.jobs`), misma imagen. Sano cuando su bucle de Kafka está vivo |
 | `core-api` | — | Core API (Spring Boot), imagen `core-api/Dockerfile`, en el puerto `8080` de la red de Docker. Sano cuando `/actuator/health` responde `UP` |
+| `web` | `8080` | **La demo:** `http://localhost:8080`. nginx (`web/Dockerfile`) con el front y `/api` y `/docs` hacia la Core API, mismo origen (plan 6.1) |
 
 Dentro de la red de Docker, Kafka escucha en `kafka:9094`; desde la PC, en `localhost:9093`.
 
@@ -42,9 +43,10 @@ KNOWLEDGE_HOST_DIR=../examples/knowledge docker compose run --rm ingestion flock
 - La primera vez, el agente descarga el modelo de embeddings (~0,2 GB) al volumen `embedding-models`,
   compartido con la ingesta; por eso su healthcheck tolera hasta 5 minutos de arranque.
 - Para preguntarle: `flock-ask` desde la PC con el certificado `cli` (ver `agent-service/README.md`).
-- La Core API no publica puertos en la PC: lo hará la web (nginx, T45). Mientras tanto, para usar el
-  front con `npm run dev`, correrla en la PC (`./mvnw spring-boot:run`, ver `core-api/README.md`).
-  Crea el usuario inicial con `ADMIN_USERNAME` y `ADMIN_PASSWORD` de `.env`.
+- La Core API no publica puertos en la PC: se llega a ella por la web (`http://localhost:8080/api`,
+  `/docs`). Crea el usuario inicial con `ADMIN_USERNAME` y `ADMIN_PASSWORD` de `.env`. La cookie de
+  sesión es `Secure`: los navegadores la aceptan en `http://localhost`; para entrar por HTTP desde
+  otra máquina, `SESSION_COOKIE_SECURE=false` en `.env`.
 - La imagen de la Core API genera la documentación AsyncAPI en su build (necesita bajar el generador
   con npm) y no corre los tests: esos van en `scripts/check.sh`.
 - Si la red inspecciona HTTPS y fallan los builds: `infra/corp-ca/README.md`.

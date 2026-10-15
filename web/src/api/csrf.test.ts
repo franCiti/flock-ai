@@ -1,4 +1,4 @@
-import { CSRF_COOKIE, CSRF_HEADER, withCsrfToken } from './client.ts';
+import { CSRF_COOKIE, CSRF_HEADER, withCsrfToken } from './csrf.ts';
 
 function setCsrfCookie(value: string | null) {
   document.cookie =

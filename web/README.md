@@ -18,7 +18,16 @@ Requieren Node.js 24 o superior.
 | Regenerar los tipos de la API | `npm run generate:api`                                      |
 
 En desarrollo, Vite manda `/api` y `/docs` a la Core API (`CORE_API_URL`, por defecto
-`http://localhost:8080`), así el front y la API comparten origen como en producción (plan 6.1).
+`http://localhost:8080`), así el front y la API comparten origen como en producción (plan 6.1). Con
+el stack de Docker Compose levantado, `http://localhost:8080` es el nginx de la imagen `web`, que a su
+vez llega a la Core API: `npm run dev` funciona sin levantar nada más.
+
+## Imagen
+
+`web/Dockerfile` (contexto: la raíz del repositorio) compila el front con Node y lo sirve con nginx
+sin root (`web/nginx/`): `/api` y `/docs` van a la Core API (sin buffer, para el SSE del chat) y las
+páginas del front llevan una CSP que solo permite este origen (spec HU15.6). En Compose es el
+servicio `web`, en `http://localhost:8080`.
 
 ## Tipos de la API
 

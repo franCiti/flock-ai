@@ -433,10 +433,19 @@
   (con el mismo Markdown seguro del chat) y fuentes. Visto contra el stack: la Core API manda `null`
   en los campos vacíos aunque el OpenAPI los declara opcionales; el front lo tolera.
 
-**[ ] T44 — Imagen de web**
+**[x] T44 — Imagen de web**
 - Plan: 6.1, 7.5 · Depende de: T05, T40
 - Build con Node → nginx, proxy de `/api` y `/docs`.
 - **Hecho cuando:** la demo completa funciona en `http://localhost:8080`.
+- **Nota (2026-10-15):** `nginxinc/nginx-unprivileged` (sin root, puerto 8080). `/api` sin buffer y
+  con `proxy_read_timeout` de 1 h para el SSE; `/actuator` responde 404 desde afuera. Las páginas del
+  front llevan CSP (solo este origen, sin imágenes externas ni frames) y otras cabeceras de seguridad;
+  `/docs` no, porque la sirve la Core API con sus propios scripts. Probado en el navegador en
+  `http://localhost:8080`: login, chat con el modelo gratuito (SSE a través de nginx), actualizaciones
+  y auditoría, sin violaciones de CSP. Arreglado al probarlo: después de cerrar sesión, volver a entrar
+  sin recargar daba 403 porque el logout borra la cookie CSRF; `login()` ahora la pide antes si falta,
+  y la API simulada de los tests valida el CSRF como Spring. Los helpers de CSRF pasaron a
+  `api/csrf.ts`.
 
 **[ ] T45 — Cierre de la etapa 2** ⚠️ usa la API key
 - Plan: 8.5, 8.6, 9.1 · Depende de: T41–T44

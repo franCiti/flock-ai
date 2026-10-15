@@ -174,7 +174,7 @@ services:
     restart: unless-stopped
 
   # Core API: REST API and SSE for the web app, Kafka client of the agent (plan section 6). Inside the
-  # Docker network only: the web app (nginx) will publish it on the PC.
+  # Docker network only: the web app (nginx) publishes it on the PC.
   core-api:
     build:
       context: ..
@@ -215,6 +215,25 @@ services:
       interval: 10s
       timeout: 5s
       start_period: 60s
+      retries: 3
+    restart: unless-stopped
+
+  # Web app (plan 6.1): the front, with /api and /docs proxied to the Core API on the same origin.
+  # The demo: http://localhost:8080
+  web:
+    build:
+      context: ..
+      dockerfile: web/Dockerfile
+    image: flock-ai/web:dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      core-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
       retries: 3
     restart: unless-stopped
 

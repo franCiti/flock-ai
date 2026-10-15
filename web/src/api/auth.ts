@@ -1,4 +1,5 @@
 import { ApiError, api, apiFetch } from './client.ts';
+import { CSRF_COOKIE, readCookie } from './csrf.ts';
 import type { components } from './schema.ts';
 
 export type Credentials = components['schemas']['LoginRequest'];
@@ -26,6 +27,10 @@ export async function fetchCurrentUser(): Promise<CurrentUser | null> {
 
 /** Starts a session; the Core API sets the session cookie. */
 export async function login(credentials: Credentials): Promise<void> {
+  // The CSRF cookie comes with any response, but a logout clears it: without one, ask for it first.
+  if (readCookie(CSRF_COOKIE) === undefined) {
+    await api.GET('/api/auth/me');
+  }
   const { response } = await api.POST('/api/auth/login', { body: credentials });
   if (response.status === 401) {
     throw new InvalidCredentialsError();

@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { FakeEventSource } from './eventSource.ts';
-import { server } from './server.ts';
+import { clearCsrfCookie, server } from './server.ts';
 
 // jsdom does not lay out pages: scrolling does nothing.
 // Some suites run in the node environment, without a DOM.
@@ -20,6 +20,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  if (typeof document !== 'undefined') {
+    clearCsrfCookie();
+  }
   cleanup();
   server.resetHandlers();
 });

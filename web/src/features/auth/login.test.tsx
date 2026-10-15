@@ -82,6 +82,18 @@ describe('login flow', () => {
     expect(router.state.location.pathname).toBe('/login');
   });
 
+  it('signs in again right after signing out (the logout clears the CSRF cookie)', async () => {
+    mockAuthApi({ signedIn: true });
+    const { router, user } = renderApp('/chat');
+    await user.click(await screen.findByRole('button', { name: 'Cerrar sesión' }));
+    await screen.findByRole('heading', { name: 'Iniciar sesión' });
+
+    await fillAndSubmit(user, validCredentials.username, validCredentials.password);
+
+    expect(await screen.findByRole('heading', { name: 'Chat' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
+  });
+
   it('offers a retry when the session cannot be checked', async () => {
     mockAuthApi({ signedIn: true });
     server.use(http.get('*/api/auth/me', () => HttpResponse.error(), { once: true }));

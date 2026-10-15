@@ -5,3 +5,5 @@ src/api/openapi.json
 src/api/schema.ts
 # Verbatim copy of the Flock design system tokens (.claude/skills/flock-design-system/assets).
 src/styles/tokens.css
+# nginx configuration: Prettier has no parser for it (it would read the .inc files as Markdown).
+nginx/
