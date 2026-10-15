@@ -135,15 +135,12 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # Ingestion: `docker compose run --rm ingestion flock-ingest run` updates the knowledge base of
-  # data/knowledge (or KNOWLEDGE_HOST_DIR). It is the only service that sees the files (plan 7.5).
+  # Ingestion Worker: runs the jobs of ingestion.jobs over data/knowledge (or KNOWLEDGE_HOST_DIR),
+  # the only service that sees the files (plan 7.5). A manual update without Kafka:
+  # `docker compose run --rm ingestion flock-ingest run`.
   ingestion:
     build: *agent-service-build
     image: flock-ai/agent-service:dev
-    # TODO(T34): the Ingestion Worker (consumes ingestion.jobs) does not exist yet. Until then the
-    # service only starts with its profile or with `docker compose run`; T34 removes the profile
-    # and adds its health check.
-    profiles: ["ingestion-worker"]
     command: ["flock-ingest", "worker"]
     environment:
       <<: *agent-service-connections
@@ -151,6 +148,7 @@ services:
       TLS_KEY_FILE: /run/flock/certs/ingestion.key
       TLS_CA_FILE: /run/flock/certs/ca.crt
       POSTGRES_USER: ingestion
+      HEARTBEAT_FILE: /run/flock/heartbeat
       MAX_FILE_MB: ${MAX_FILE_MB:-}
     volumes:
       - ./certs/out/ingestion:/certs:ro
@@ -162,6 +160,18 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+    healthcheck:
+      # The worker touches its heartbeat file on every poll of ingestion.jobs (about every 0.5 s).
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/run/flock/heartbeat') > 30)"
+      interval: 10s
+      timeout: 5s
+      start_period: 300s
+      retries: 3
+    restart: unless-stopped
 
 volumes:
   postgres-data:

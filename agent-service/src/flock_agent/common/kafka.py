@@ -1,6 +1,8 @@
 """Kafka producers and consumers over mutual TLS (plan sections 2.2 and 7.2)."""
 
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from collections import deque
+
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
 from pydantic import BaseModel
 
 from flock_agent.common.settings import Settings
@@ -76,3 +78,35 @@ class KafkaPublisher:
             key=None if key is None else key.encode(),
             headers=message_headers(schema),
         )
+
+
+class OffsetTracker:
+    """Which offsets can be committed: those below the oldest message still being handled.
+
+    Messages finish in any order, but a partition's offset can only move past a message once
+    every earlier message of that partition is done.
+    """
+
+    def __init__(self) -> None:
+        self._pending: dict[TopicPartition, deque[int]] = {}
+        self._done: dict[TopicPartition, set[int]] = {}
+        self._committed: dict[TopicPartition, int] = {}
+
+    def start(self, partition: TopicPartition, offset: int) -> None:
+        self._pending.setdefault(partition, deque()).append(offset)
+
+    def finish(self, partition: TopicPartition, offset: int) -> None:
+        self._done.setdefault(partition, set()).add(offset)
+
+    def committable(self) -> dict[TopicPartition, int]:
+        """New offsets to commit (the next offset to read of each partition)."""
+        commits: dict[TopicPartition, int] = {}
+        for partition, pending in self._pending.items():
+            done = self._done.get(partition, set())
+            last = None
+            while pending and pending[0] in done:
+                last = pending.popleft()
+                done.discard(last)
+            if last is not None and self._committed.get(partition) != last + 1:
+                commits[partition] = self._committed[partition] = last + 1
+        return commits

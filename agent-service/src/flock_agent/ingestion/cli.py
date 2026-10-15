@@ -1,12 +1,14 @@
 """Ingestion entry point (`flock-ingest`, plan 5.8).
 
 `run` updates the knowledge base once, without Kafka (development and manual runs).
-`worker` (consumes ingestion.jobs) is implemented in T34.
+`worker` consumes ingestion.jobs and publishes ingestion.events (plan 5.1, D31).
 """
 
 import argparse
 import asyncio
+import contextlib
 import logging
+import signal
 import uuid
 from collections.abc import Sequence
 from pathlib import Path
@@ -16,9 +18,19 @@ from flock_agent.common.aio import run_async
 from flock_agent.common.bootstrap import bootstrap
 from flock_agent.common.cli import exit_not_implemented
 from flock_agent.common.db import conninfo, open_pool
+from flock_agent.common.kafka import KafkaPublisher, start_consumer, start_producer
 from flock_agent.common.migrations import apply_migrations
 from flock_agent.common.settings import Settings
-from flock_agent.ingestion.pipeline import IngestionPipeline, RunResult
+from flock_agent.ingestion.pipeline import AnyEvent, IngestionPipeline, RunResult
+from flock_agent.ingestion.worker import (
+    CONSUMER_GROUP,
+    EVENT_SCHEMA,
+    EVENTS_TOPIC,
+    JOBS_TOPIC,
+    KAFKA_CLIENT_ID,
+    IngestionWorker,
+    JobHandler,
+)
 from flock_agent.knowledge.embeddings import FastEmbedEmbedder
 from flock_agent.knowledge.repository import KnowledgeRepository
 
@@ -48,7 +60,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     settings = bootstrap()
     if args.command == "worker":
-        exit_not_implemented("flock-ingest worker", task="T34")
+        with contextlib.suppress(KeyboardInterrupt):
+            run_async(_serve(settings))
+        return
     if args.sources is not None:
         # TODO(T47+): external sources arrive in stage 3.
         exit_not_implemented("flock-ingest run --sources", task="T47")
@@ -114,3 +128,54 @@ def format_result(result: RunResult) -> str:
         f"{totals.deleted} deleted, {totals.unchanged} unchanged, {totals.skipped} skipped"
     )
     return "\n".join(lines)
+
+
+async def _serve(settings: Settings) -> None:
+    """The Ingestion Worker: consumes ingestion.jobs until it is stopped."""
+    applied = await asyncio.to_thread(apply_migrations, conninfo(settings), schema="knowledge")
+    if applied:
+        log.info("migrations applied", extra={"migrations": applied})
+    messages = load_messages(settings.messages_file)
+    embedder = await asyncio.to_thread(
+        FastEmbedEmbedder,
+        settings.embedding_model,
+        cache_dir=settings.embedding_cache_dir,
+        batch_size=settings.embedding_batch_size,
+    )
+    pool = await open_pool(settings, max_size=4)
+    stack = contextlib.AsyncExitStack()
+    try:
+        stack.push_async_callback(pool.close)
+        producer = await start_producer(settings, client_id=KAFKA_CLIENT_ID)
+        stack.push_async_callback(producer.stop)
+        publisher = KafkaPublisher(producer)
+
+        async def publish(event: AnyEvent) -> None:
+            await publisher.publish(EVENTS_TOPIC, str(event.job_id), event, EVENT_SCHEMA)
+
+        repository = KnowledgeRepository(pool)
+        pipeline = IngestionPipeline(
+            repository,
+            embedder,
+            knowledge_root=settings.knowledge_root,
+            max_bytes=settings.max_file_mb * 1024 * 1024,
+            on_event=publish,
+            secret_placeholder=messages.secret_placeholder,
+        )
+        consumer = await start_consumer(
+            settings, JOBS_TOPIC, client_id=KAFKA_CLIENT_ID, group_id=CONSUMER_GROUP
+        )
+        stack.push_async_callback(consumer.stop)
+        worker = IngestionWorker(
+            consumer, JobHandler(pipeline, repository).handle, heartbeat=settings.heartbeat_file
+        )
+        stop = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            # Windows' event loops do not support signal handlers: Ctrl+C stops the process there.
+            with contextlib.suppress(NotImplementedError):
+                loop.add_signal_handler(sig, stop.set)
+        log.info("ingestion worker started", extra={"knowledge_root": str(settings.knowledge_root)})
+        await worker.run(stop)
+    finally:
+        await stack.aclose()

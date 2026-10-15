@@ -318,10 +318,15 @@
   terminada y un mensaje viejo no pisa el nombre más nuevo de una persona. Los mensajes ilegibles se
   registran y se saltean. `MutualTlsStackTest` corre con los listeners apagados.
 
-**[ ] T34 — Ingestion Worker con Kafka**
+**[x] T34 — Ingestion Worker con Kafka**
 - Spec: HU4.8, HU4.9 · Plan: 5.1 · Decisiones: D31 · Depende de: T18, T08
 - Consumo de `ingestion.jobs`, publicación de `ingestion.events` (incluye `rejected` y `persona_removed`).
 - **Hecho cuando:** test de integración con un job, y con dos jobs simultáneos (el segundo se rechaza).
+- **Nota (2026-10-15):** los jobs corren como tareas concurrentes a propósito: uno toma el candado y
+  los que llegan mientras tanto se rechazan enseguida, en lugar de esperar su turno. Un job ya
+  procesado (reentregado) o ilegible se saltea. Las fuentes externas del job se ignoran con un aviso
+  hasta la etapa 3 (`TODO(T49)`). En Compose el servicio `ingestion` ya no tiene perfil y tiene
+  healthcheck por latido. `OffsetTracker` pasó a `common/kafka.py` (lo comparten los dos workers).
 
 **[ ] T35 — Disparo de la ingesta**
 - Spec: HU4.8 · Plan: 6.3, 6.5 · Depende de: T33, T34

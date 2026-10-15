@@ -18,7 +18,8 @@ from flock_agent.agent.processing import (
     client_id_of,
     is_llm_unavailable,
 )
-from flock_agent.agent.worker import AgentWorker, OffsetTracker
+from flock_agent.agent.worker import AgentWorker
+from flock_agent.common.kafka import OffsetTracker
 
 P0 = TopicPartition("agent.requests", 0)
 P1 = TopicPartition("agent.requests", 1)

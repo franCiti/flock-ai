@@ -107,4 +107,9 @@ Imprime el resultado de cada caso y los criterios de éxito, y escribe el report
 más una comparación si hay varios modelos) en `eval/reports/` (fuera de git). Con OpenRouter **solo
 al cerrar cada etapa** (D41); con `LLM_PROVIDER=fake` verifica la mecánica, no la calidad.
 
-El comando `flock-ingest worker` se implementa en la T34.
+## Ingestion Worker (`flock-ingest worker`)
+
+Consume `ingestion.jobs` (los publica la Core API: programados y manuales) y publica el avance en
+`ingestion.events`. Si llega un job mientras corre otro, lo rechaza (`rejected`, HU4.9). En Docker
+Compose es el servicio `ingestion`. En la PC: las mismas variables que `flock-ingest run` (arriba)
+y `uv run flock-ingest worker`.

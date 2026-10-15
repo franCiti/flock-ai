@@ -22,7 +22,7 @@ La primera vez, dos contenedores de un solo uso preparan todo:
 | `postgres` | `5433` | PostgreSQL 17 + pgvector. Solo TLS con certificado de cliente (7.3) |
 | `kafka` | `9093` | Kafka 4 en modo KRaft. Solo TLS 1.3 con certificado de cliente; ACLs que prohíben todo por defecto (7.2) |
 | `agent` | — | Agent Worker (`flock-agent`), imagen `agent-service/Dockerfile`. Sano cuando su bucle de Kafka está vivo |
-| `ingestion` | — | Ingesta (`flock-ingest`), misma imagen. Hasta la T34 no se levanta sola: se usa con `docker compose run` |
+| `ingestion` | — | Ingestion Worker (`flock-ingest worker`, consume `ingestion.jobs`), misma imagen. Sano cuando su bucle de Kafka está vivo |
 
 Dentro de la red de Docker, Kafka escucha en `kafka:9094`; desde la PC, en `localhost:9093`.
 
