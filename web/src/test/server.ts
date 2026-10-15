@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { Credentials, CurrentUser } from '../api/auth.ts';
+import type { Persona } from '../api/chat.ts';
 
 /** Simulated Core API. Every test starts without handlers; unknown requests fail. */
 export const server = setupServer();
@@ -31,4 +32,40 @@ export function mockAuthApi(options: { signedIn?: boolean } = {}) {
   );
 
   return { loginBodies };
+}
+
+export const testPersonas: Persona[] = [
+  { id: 'juan-plataforma', displayName: 'Juan Pérez' },
+  { id: 'ana-datos', displayName: 'Ana Gómez' },
+];
+
+/** A question the simulated Core API received. */
+export interface SentQuestion {
+  conversationId: string;
+  personaId: string;
+  question: string;
+  requestId: string;
+}
+
+/** Personas, settings and the questions of the chat; each question gets request-1, request-2... */
+export function mockChatApi(
+  options: { personas?: Persona[]; maxQuestionChars?: number; sendStatus?: number } = {},
+) {
+  const questions: SentQuestion[] = [];
+  server.use(
+    http.get('*/api/personas', () => HttpResponse.json(options.personas ?? testPersonas)),
+    http.get('*/api/config', () =>
+      HttpResponse.json({ maxQuestionChars: options.maxQuestionChars ?? 2000 }),
+    ),
+    http.post('*/api/conversations/:conversationId/messages', async ({ request, params }) => {
+      if (options.sendStatus !== undefined) {
+        return new HttpResponse(null, { status: options.sendStatus });
+      }
+      const body = (await request.json()) as { personaId: string; question: string };
+      const requestId = `request-${String(questions.length + 1)}`;
+      questions.push({ conversationId: String(params.conversationId), ...body, requestId });
+      return HttpResponse.json({ requestId }, { status: 202 });
+    }),
+  );
+  return { questions };
 }

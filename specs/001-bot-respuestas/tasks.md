@@ -395,11 +395,21 @@
   (`npm run test:api`) **falla hasta la T32**, que la incluye en su "hecho cuando". La copia del
   OpenAPI vive en `web/src/api/openapi.json` y la controla `OpenApiSnapshotTest` en `core-api`.
 
-**[ ] T41 — Pantalla de chat**
+**[x] T41 — Pantalla de chat**
 - Spec: HU6, HU10, HU15.6 · Plan: 6.6 · Depende de: T36, T37, T40
 - Selector de persona, streaming, cuenta regresiva, citas, derivación, errores y reintento, Markdown
   seguro, contador de caracteres, conversación nueva.
 - **Hecho cuando:** tests de cuenta regresiva, armado del streaming, Markdown seguro y errores.
+- **Nota (2026-10-15):** el armado de la conversación es un reducer puro (`conversation.ts`) y el
+  `EventSource` queda detrás de `openReplyStream`; los tests usan un `EventSource` falso (jsdom no
+  tiene) y la API simulada con MSW. Los tipos de los mensajes del stream están escritos a mano en
+  `api/chat.ts` (el OpenAPI describe el stream como texto). Agregados al plan: cambiar de persona
+  empieza una conversación nueva; la derivación ofrece "Conversar con *X*" si la persona existe; sin
+  `accepted` en 30 s, o sin respuesta 15 s después del plazo, el turno termina con error y
+  "Reintentar"; si el `EventSource` se rinde (por ejemplo, sesión vencida) aparece "Reconectar" y se
+  revisa la sesión. Las citas repetidas (mismo documento y sección) se muestran una vez y los enlaces
+  solo se abren si son `http(s)`. Probado en el navegador contra el stack con el modelo gratuito.
+  Dependencia nueva: `react-markdown` 10.1.0.
 
 **[ ] T42 — Pantalla de actualizaciones**
 - Spec: HU4 · Plan: 6.6 · Depende de: T35, T40

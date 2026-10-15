@@ -52,7 +52,8 @@ h1 {
   color: var(--text-faint);
 }
 
-.field input {
+.field input,
+.field select {
   font-family: inherit;
   font-size: 13px;
   padding: 9px 11px;
@@ -62,7 +63,8 @@ h1 {
   color: var(--text);
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   outline: 2px solid var(--brand-soft);
   border-color: var(--brand);
 }

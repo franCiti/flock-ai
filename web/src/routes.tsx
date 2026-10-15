@@ -1,6 +1,7 @@
 import { Navigate, type RouteObject } from 'react-router';
 import { AppLayout } from './components/AppLayout.tsx';
 import { PlaceholderPage } from './components/PlaceholderPage.tsx';
+import { ChatPage } from './features/chat/ChatPage.tsx';
 import { LoginPage } from './features/auth/LoginPage.tsx';
 import { RequireAuth } from './features/auth/RequireAuth.tsx';
 
@@ -16,8 +17,7 @@ export const routes: RouteObject[] = [
     ),
     children: [
       { index: true, element: <Navigate to="/chat" replace /> },
-      // TODO(T41): chat screen.
-      { path: 'chat', element: <PlaceholderPage title="Chat" /> },
+      { path: 'chat', element: <ChatPage /> },
       // TODO(T42): updates screen.
       { path: 'sources', element: <PlaceholderPage title="Actualizaciones" /> },
       // TODO(T43): audit screen.
