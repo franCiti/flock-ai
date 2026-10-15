@@ -2,13 +2,13 @@ package ar.com.flockit.flockai.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ar.com.flockit.flockai.core.support.IntegrationTest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import tools.jackson.databind.SerializationFeature;
@@ -19,7 +19,7 @@ import tools.jackson.databind.node.ObjectNode;
  * Keeps the copy of the OpenAPI spec that the web app generates its types from (plan 6.7) equal to
  * the one the API publishes. Run with {@code -Dopenapi.update=true} to rewrite the copy.
  */
-@SpringBootTest
+@IntegrationTest
 @AutoConfigureMockMvc
 class OpenApiSnapshotTest {
 

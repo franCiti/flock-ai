@@ -17,6 +17,25 @@ firewall, y uv descargaba sin `system-certs`.
 **Conclusión:** la inspección es **intermitente**; probablemente depende de la red (oficina, VPN)
 o del escaneo HTTPS del antivirus. Sin confirmar.
 
+**Confirmado (2026-10-15, T31):** es el **antivirus Avast** ("Web/Mail Shield"). La cadena que recibe
+Maven de `repo.maven.apache.org` termina en `CN=Avast Web/Mail Shield Root` (generada por Avast para
+el escaneo SSL/TLS). Esa raíz está en el almacén de Windows, no en el de Java.
+
+- **Maven:** falla con `PKIX path building failed`. Defensa: que la JVM de Maven use el almacén de
+  Windows. `scripts/run_maven.py` (hooks de pre-commit) lo hace solo; para `./mvnw` a mano:
+  `MAVEN_OPTS="-Djavax.net.ssl.trustStoreType=Windows-ROOT" ./mvnw verify`.
+- **Java contra Kafka en la PC (`localhost:9093`):** Avast también intercepta ese TLS y reemplaza el
+  certificado del broker por uno propio (`Avast Web/Mail Shield Untrusted Root`): **no hay mTLS
+  posible desde Java en esta PC** mientras pasa (es intermitente: la misma prueba, horas después,
+  pasó sin intercepción). Python (`flock-ask`) y Postgres (TLS dentro de su protocolo) no
+  se ven afectados, ni Java dentro de Docker. `MutualTlsStackTest` omite su parte de Kafka con este
+  motivo. Para usar la Core API en la PC contra Kafka hace falta una excepción en Avast (para
+  `localhost` o para `java.exe`); es una configuración de seguridad del equipo y la decide Francisco.
+- **Sockets locales de Java:** dentro de los tests de Maven, el JDK no puede conectar los sockets de
+  dominio Unix que usa internamente en la carpeta temporal ("Unable to establish loopback
+  connection" al crear un cliente de Kafka). `core-api/pom.xml` los ubica en `target/`
+  (`jdk.net.unixdomain.tmpdir`). Probablemente también por el antivirus; sin confirmar.
+
 **Defensas que quedan activas** (no molestan sin inspección y protegen con ella):
 
 | Herramienta | Defensa |

@@ -1,6 +1,39 @@
 spring:
   application:
     name: core-api
+  # Without an explicit profile the Core API connects with mutual TLS (application-mtls.yml).
+  # Tests use the "test" profile with plain ephemeral containers.
+  profiles:
+    default: mtls
+
+  # PostgreSQL: role core_api, owner of the schema "core" (plan 3.1, 7.3).
+  datasource:
+    username: core_api
+  flyway:
+    schemas: core
+    default-schema: core
+    # The schema exists already: created with its owner by infra/postgres/initdb.
+    create-schemas: false
+
+  # Kafka client of the agent and of the ingestion (plan 6.5).
+  kafka:
+    client-id: core-api
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      # The ACLs only let core-api use its own consumer group (infra/kafka/setup.sh).
+      group-id: core-api
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Offsets are committed after each record is processed (read copies are idempotent upserts).
+      ack-mode: record
 
 server:
   port: 8080

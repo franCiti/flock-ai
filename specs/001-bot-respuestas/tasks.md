@@ -280,10 +280,18 @@
   pre-commit llaman a Maven vía `scripts/run_maven.py`. `ContractTest` lee `../contracts` (propiedad
   `contracts.dir`): la imagen de T39 tendrá que incluir esa carpeta o saltear los tests.
 
-**[ ] T31 — Conexiones de Java**
+**[x] T31 — Conexiones de Java**
 - Plan: 6.5, 7.2, 7.3 · Depende de: T30, T06, T07
 - SSL bundles con los certificados, Kafka y Postgres con mTLS, Flyway con el schema `core`.
 - **Hecho cuando:** tests de integración (Testcontainers) aplican las migraciones y publican y consumen mensajes.
+- **Nota (2026-10-15):** mTLS en el perfil `mtls`, que es el perfil por defecto (`application-mtls.yml`):
+  SSL bundle de Spring con los PEM para Kafka y, para Postgres, `PemSslSocketFactory` (pgjdbc en
+  Windows rechaza las claves que el grupo Administradores puede leer). Los tests usan el perfil `test`
+  con Testcontainers inicializado con `infra/postgres/initdb` (Flyway corre como `core_api`).
+  `MutualTlsStackTest` verifica mTLS real contra Docker Compose (Postgres y Kafka, ambos en verde); su
+  parte de Kafka se omite con el motivo cuando Avast intercepta el TLS de Java a `localhost:9093`, algo
+  intermitente en esta PC (detalle en `docs/notas-entorno.md`).
+  `V1` solo documenta el schema `core`; las tablas llegan con sus tareas.
 
 **[ ] T32 — Autenticación**
 - Spec: HU10.1 · Plan: 3.4, 6.2 · Depende de: T31

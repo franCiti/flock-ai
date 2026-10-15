@@ -1,0 +1,29 @@
+# Mutual TLS with the flock-ai CA (D17, plan 7.1-7.3): the default profile.
+#
+# TLS_CERT_FILE, TLS_KEY_FILE and TLS_CA_FILE point to the PEM files of the certificate "core-api"
+# (infra/certs/out/core-api/). Its CN is the PostgreSQL role and the Kafka user (User:core-api).
+spring:
+  ssl:
+    bundle:
+      pem:
+        flock:
+          keystore:
+            certificate: "file:${TLS_CERT_FILE}"
+            private-key: "file:${TLS_KEY_FILE}"
+          truststore:
+            certificate: "file:${TLS_CA_FILE}"
+
+  # PostgreSQL authenticates the certificate (hostssl ... cert): no password. The TLS context comes
+  # from the PEM files (PemSslSocketFactory); pgjdbc verifies the server name (verify-full).
+  datasource:
+    url: "jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:flock_ai}\
+      ?sslmode=verify-full&sslrootcert=${TLS_CA_FILE}&sslcert=${TLS_CERT_FILE}&sslkey=${TLS_KEY_FILE}\
+      &sslfactory=ar.com.flockit.flockai.core.common.PemSslSocketFactory\
+      &ApplicationName=core-api"
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9093}
+    security:
+      protocol: SSL
+    ssl:
+      bundle: flock
