@@ -1,5 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
+import type { AuditPage } from '../api/audit.ts';
 import type { Credentials, CurrentUser } from '../api/auth.ts';
 import type { Persona } from '../api/chat.ts';
 import type { IngestionRun } from '../api/ingestion.ts';
@@ -102,4 +103,16 @@ export function mockIngestionApi(options: {
     }),
   );
   return { requested };
+}
+
+/** The audit log: answers {@code page} to every request and keeps the query of each one. */
+export function mockAuditApi(page: AuditPage) {
+  const queries: URLSearchParams[] = [];
+  server.use(
+    http.get('*/api/audit', ({ request }) => {
+      queries.push(new URL(request.url).searchParams);
+      return HttpResponse.json(page);
+    }),
+  );
+  return { queries, lastQuery: () => queries.at(-1) ?? new URLSearchParams() };
 }

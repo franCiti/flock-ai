@@ -423,9 +423,15 @@
   Visto en el navegador contra el stack: el conteo "sin cambios" del agente sale en 0 cuando nada
   cambió (el conector de carpetas no recorre los archivos sin cambios); queda como tarea aparte.
 
-**[ ] T43 — Pantalla de auditoría**
+**[x] T43 — Pantalla de auditoría**
 - Spec: HU8 · Plan: 6.6 · Depende de: T37, T40
 - **Hecho cuando:** tests de filtros y detalle.
+- **Nota (2026-10-15):** barra de filtros con persona, desde/hasta (días locales completos, "hasta"
+  incluido), resultado, marca y "Solo con derivación"; la marca "Pedidos rechazados" agrupa
+  `rate_limited`, `question_too_long` e `invalid_request` (HU8.2). Tabla paginada de a 20, y al elegir
+  una pregunta, su detalle: datos del pedido, modelo y versión del prompt, tiempos, pregunta, respuesta
+  (con el mismo Markdown seguro del chat) y fuentes. Visto contra el stack: la Core API manda `null`
+  en los campos vacíos aunque el OpenAPI los declara opcionales; el front lo tolera.
 
 **[ ] T44 — Imagen de web**
 - Plan: 6.1, 7.5 · Depende de: T05, T40
