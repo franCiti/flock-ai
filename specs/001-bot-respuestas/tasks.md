@@ -360,10 +360,15 @@
   "casos marcados" de HU8.2 incluyen las derivaciones). Un valor desconocido responde 400.
   `GET /api/config` devuelve `{ maxQuestionChars }` (`MAX_QUESTION_CHARS`, el mismo límite que el agente).
 
-**[ ] T38 — Documentación publicada**
+**[x] T38 — Documentación publicada**
 - Plan: 2.7, 6.3 · Depende de: T03, T30
 - Swagger UI y AsyncAPI HTML servidos en `/docs`.
 - **Hecho cuando:** ambas se ven sin sesión.
+- **Nota (2026-10-15):** `/docs/` es un índice con enlaces a Swagger UI (`/docs/swagger-ui/index.html`),
+  la documentación AsyncAPI (`/docs/asyncapi/`) y la especificación OpenAPI (`/docs/openapi`). Como
+  `contracts/docs/` se genera y está fuera de git, Maven la copia a la aplicación solo si existe:
+  `scripts/check.sh` corre `contracts/build-docs.sh` antes de los tests de `core-api`, y la imagen
+  (T39) la genera en su build. Sin generarla, el test de AsyncAPI queda omitido.
 
 **[ ] T39 — Imagen de core-api**
 - Plan: 7.5 · Depende de: T05, T31

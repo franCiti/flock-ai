@@ -47,3 +47,7 @@ Valida el documento AsyncAPI y genera `docs/index.html` (requiere Node.js):
 ```bash
 contracts/build-docs.sh
 ```
+
+La Core API la publica en `/docs/asyncapi/`, sin sesión, junto a Swagger UI (`/docs/`): el build de
+Maven copia `docs/` dentro de la aplicación si existe. Generarla antes de `./mvnw verify` (lo hace
+`scripts/check.sh`); si falta, el test que la revisa queda omitido.

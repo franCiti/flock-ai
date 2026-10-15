@@ -19,6 +19,10 @@ if [[ -f agent-service/pyproject.toml ]]; then
 fi
 
 if [[ -f core-api/pom.xml ]]; then
+  # core-api serves the AsyncAPI documentation and its tests check it.
+  step "AsyncAPI documentation"
+  contracts/build-docs.sh
+
   step "core-api tests"
   (cd core-api && ./mvnw --batch-mode verify)
 fi
