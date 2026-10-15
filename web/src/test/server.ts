@@ -2,6 +2,7 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import type { Credentials, CurrentUser } from '../api/auth.ts';
 import type { Persona } from '../api/chat.ts';
+import type { IngestionRun } from '../api/ingestion.ts';
 
 /** Simulated Core API. Every test starts without handlers; unknown requests fail. */
 export const server = setupServer();
@@ -68,4 +69,37 @@ export function mockChatApi(
     }),
   );
   return { questions };
+}
+
+/**
+ * The knowledge updates: {@code history} is what GET answers (it can change between calls); a POST
+ * adds a "requested" run at the top, or answers {@code requestStatus}.
+ */
+export function mockIngestionApi(options: {
+  history: IngestionRun[] | (() => IngestionRun[]);
+  requestStatus?: number;
+}) {
+  const requested: IngestionRun[] = [];
+  server.use(
+    http.get('*/api/ingestion/runs', () => {
+      const history = typeof options.history === 'function' ? options.history() : options.history;
+      return HttpResponse.json([...requested, ...history]);
+    }),
+    http.post('*/api/ingestion/runs', () => {
+      if (options.requestStatus !== undefined) {
+        return new HttpResponse(null, { status: options.requestStatus });
+      }
+      const jobId = `job-${String(requested.length + 1)}`;
+      requested.unshift({
+        jobId,
+        trigger: 'manual',
+        status: 'requested',
+        requestedAt: '2026-10-15T15:00:00Z',
+        personas: [],
+        removedPersonas: [],
+      });
+      return HttpResponse.json({ jobId }, { status: 202 });
+    }),
+  );
+  return { requested };
 }

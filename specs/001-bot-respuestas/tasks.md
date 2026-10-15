@@ -411,10 +411,17 @@
   solo se abren si son `http(s)`. Probado en el navegador contra el stack con el modelo gratuito.
   Dependencia nueva: `react-markdown` 10.1.0.
 
-**[ ] T42 — Pantalla de actualizaciones**
+**[x] T42 — Pantalla de actualizaciones**
 - Spec: HU4 · Plan: 6.6 · Depende de: T35, T40
 - Botón "Actualizar ahora" e historial con el resumen de cada corrida (las fuentes externas se suman en la etapa 3).
 - **Hecho cuando:** tests de la pantalla con API simulada.
+- **Nota (2026-10-15):** `/sources` muestra el historial (las últimas 20) en una tabla con los totales
+  y, por corrida, un "Detalle" con el resumen de cada persona, los archivos omitidos con su motivo,
+  las personas quitadas y el motivo de un fallo o rechazo. Mientras hay una corrida pedida o en curso,
+  el historial se relee cada 3 s y "Actualizar ahora" queda deshabilitado (HU4.9). Estilos
+  compartidos nuevos en `global.css`: `.panel`, chips de estado y la tabla de datos del design system.
+  Visto en el navegador contra el stack: el conteo "sin cambios" del agente sale en 0 cuando nada
+  cambió (el conector de carpetas no recorre los archivos sin cambios); queda como tarea aparte.
 
 **[ ] T43 — Pantalla de auditoría**
 - Spec: HU8 · Plan: 6.6 · Depende de: T37, T40

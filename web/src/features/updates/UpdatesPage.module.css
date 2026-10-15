@@ -1,0 +1,111 @@
+/* Updates screen (plan 6.6): header with the action, then the history table. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1100px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.lead {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.alert {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--state-blocked-bg);
+  color: var(--state-blocked-fg);
+  font-weight: 600;
+}
+
+.notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.detailRow td {
+  border-top: none;
+  padding-top: 0;
+}
+
+.detailRow summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--brand);
+}
+
+/* On narrow screens the table scrolls sideways: the detail stays in view and wraps. */
+.detailRow details {
+  position: sticky;
+  left: 12px;
+  max-width: calc(100vw - 330px);
+}
+
+@media (max-width: 720px) {
+  .detailRow details {
+    max-width: calc(100vw - 60px);
+  }
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 0 4px;
+}
+
+.detail p {
+  margin: 0;
+}
+
+.persona h3 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+
+.persona ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.counts {
+  color: var(--text-soft);
+}
+
+.path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.reason {
+  color: var(--state-blocked-fg);
+}

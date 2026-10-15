@@ -5,9 +5,15 @@
 :root {
   /* Hover of the primary button (section 5). */
   --brand-hover: #650aa0;
-  /* "Blocked" state colors (tokens.css, state colors). */
+  /* State colors (tokens.css, state colors): background / text. */
+  --state-pending-bg: #f1ecf6;
+  --state-pending-fg: #6b5a78;
+  --state-progress-bg: #f3e6fb;
+  --state-progress-fg: #7800c0;
   --state-blocked-bg: #fde7ee;
   --state-blocked-fg: #be123c;
+  --state-completed-bg: #dcf7e6;
+  --state-completed-fg: #15803d;
 }
 
 *,
@@ -121,4 +127,93 @@ h1 {
 
 .button-ghost:hover:not(:disabled) {
   background: var(--surface);
+}
+
+/* White panel over the tinted canvas (section 1: surfaces step in value). */
+.panel {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+/* Status chip (section 5) with the state colors. */
+.chip {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.chip-pending {
+  background: var(--state-pending-bg);
+  color: var(--state-pending-fg);
+}
+
+.chip-progress {
+  background: var(--state-progress-bg);
+  color: var(--state-progress-fg);
+}
+
+.chip-blocked {
+  background: var(--state-blocked-bg);
+  color: var(--state-blocked-fg);
+}
+
+.chip-completed {
+  background: var(--state-completed-bg);
+  color: var(--state-completed-fg);
+}
+
+/* Data table (section 6). */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th {
+  padding: 10px 12px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border-strong);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-faint);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.data-table th.number {
+  text-align: right;
+}
+
+.data-table .nowrap {
+  white-space: nowrap;
+}
+
+.data-table td.number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--brand-dark);
+  text-align: right;
 }
