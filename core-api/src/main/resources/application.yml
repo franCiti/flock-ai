@@ -56,6 +56,8 @@ flock:
     # How long the agent may take to answer (HU6.3): the replies of a request in progress are kept
     # that long for a browser that reconnects (plan 6.4).
     answer-timeout: ${ANSWER_TIMEOUT:2m}
+    # The same limit as the agent (HU15): the web app counts characters against it.
+    max-question-chars: ${MAX_QUESTION_CHARS:2000}
   # Knowledge updates (D31): one every INGESTION_INTERVAL, besides the manual ones.
   ingestion:
     interval: ${INGESTION_INTERVAL:30m}

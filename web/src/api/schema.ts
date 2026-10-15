@@ -56,6 +56,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/personas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Available personas, by display name */
+        get: operations["list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conversationId}/stream": {
         parameters: {
             query?: never;
@@ -76,6 +93,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Settings for the web app */
+        get: operations["config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/me": {
         parameters: {
             query?: never;
@@ -85,6 +119,23 @@ export interface paths {
         };
         /** The signed-in user */
         get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Entries of the audit log, newest first; the filters apply together */
+        get: operations["find"];
         put?: never;
         post?: never;
         delete?: never;
@@ -125,6 +176,10 @@ export interface components {
         LoginRequest: {
             username: string;
             password: string;
+        };
+        PersonaView: {
+            id?: string;
+            displayName?: string;
         };
         IngestionRun: {
             /** Format: uuid */
@@ -184,8 +239,57 @@ export interface components {
             /** Format: int32 */
             sourceErrors?: number;
         };
+        ClientConfig: {
+            /** Format: int32 */
+            maxQuestionChars?: number;
+        };
         CurrentUser: {
             username?: string;
+        };
+        AuditPage: {
+            items?: components["schemas"]["AuditRecord"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalItems?: number;
+        };
+        AuditRecord: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            requestId?: string;
+            clientId?: string;
+            conversationId?: string;
+            personaId?: string;
+            question?: string;
+            answer?: string;
+            /** @enum {string} */
+            outcome?: "answered" | "partially_answered" | "no_information" | "out_of_scope" | "small_talk" | "about_assistant" | "error";
+            /** @enum {string} */
+            errorCode?: "INVALID_REQUEST" | "UNSUPPORTED_VERSION" | "PERSONA_NOT_FOUND" | "QUESTION_TOO_LONG" | "RATE_LIMITED" | "TIMEOUT" | "LLM_UNAVAILABLE" | "INTERNAL_ERROR";
+            citations?: components["schemas"]["Citation"][];
+            referralPersonaId?: string;
+            flags?: ("injection_suspected" | "rate_limited" | "question_too_long" | "invalid_request")[];
+            llmModel?: string;
+            promptVersion?: string;
+            /** Format: int32 */
+            firstTokenMs?: number;
+            /** Format: int32 */
+            totalMs?: number;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        Citation: {
+            documentId?: string;
+            title?: string;
+            /** Format: uri */
+            url?: string;
+            path?: string;
+            section?: string;
+            /** @enum {string} */
+            sourceType?: "file" | "email" | "email_attachment" | "jira" | "confluence" | "sharepoint";
         };
     };
     responses: never;
@@ -311,6 +415,26 @@ export interface operations {
             };
         };
     };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonaView"][];
+                };
+            };
+        };
+    };
     stream: {
         parameters: {
             query?: never;
@@ -332,6 +456,26 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": string;
+                };
+            };
+        };
+    };
+    config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientConfig"];
                 };
             };
         };
@@ -361,6 +505,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+        };
+    };
+    find: {
+        parameters: {
+            query?: {
+                /** @description Page number, from 0 */
+                page?: number;
+                size?: number;
+                personaId?: string;
+                /** @description First moment included (ISO 8601) */
+                from?: string;
+                /** @description First moment excluded (ISO 8601) */
+                to?: string;
+                /** @description Entries with any of these outcomes */
+                outcome?: ("answered" | "partially_answered" | "no_information" | "out_of_scope" | "small_talk" | "about_assistant" | "error")[];
+                /** @description Entries with any of these flags */
+                flag?: ("injection_suspected" | "rate_limited" | "question_too_long" | "invalid_request")[];
+                /** @description Whether the answer suggested another persona */
+                referred?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
                 };
             };
         };

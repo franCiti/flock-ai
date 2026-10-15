@@ -5,14 +5,23 @@
     "version" : "v0"
   },
   "tags" : [ {
+    "name" : "config",
+    "description" : "Settings for the web app"
+  }, {
     "name" : "ingestion",
     "description" : "Knowledge updates"
+  }, {
+    "name" : "audit",
+    "description" : "Record of the processed questions"
   }, {
     "name" : "chat",
     "description" : "Questions to a virtual persona and their streamed replies"
   }, {
     "name" : "auth",
     "description" : "Session of the web app (cookie)"
+  }, {
+    "name" : "personas",
+    "description" : "Virtual personas"
   } ],
   "paths" : {
     "/api/ingestion/runs" : {
@@ -150,6 +159,28 @@
         }
       }
     },
+    "/api/personas" : {
+      "get" : {
+        "tags" : [ "personas" ],
+        "summary" : "Available personas, by display name",
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PersonaView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/conversations/{conversationId}/stream" : {
       "get" : {
         "tags" : [ "chat" ],
@@ -188,6 +219,25 @@
         }
       }
     },
+    "/api/config" : {
+      "get" : {
+        "tags" : [ "config" ],
+        "summary" : "Settings for the web app",
+        "operationId" : "config",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClientConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/me" : {
       "get" : {
         "tags" : [ "auth" ],
@@ -210,6 +260,105 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/CurrentUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit" : {
+      "get" : {
+        "tags" : [ "audit" ],
+        "summary" : "Entries of the audit log, newest first; the filters apply together",
+        "operationId" : "find",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Page number, from 0",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "personaId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First moment included (ISO 8601)",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "First moment excluded (ISO 8601)",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "outcome",
+          "in" : "query",
+          "description" : "Entries with any of these outcomes",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "answered", "partially_answered", "no_information", "out_of_scope", "small_talk", "about_assistant", "error" ]
+            }
+          }
+        }, {
+          "name" : "flag",
+          "in" : "query",
+          "description" : "Entries with any of these flags",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "injection_suspected", "rate_limited", "question_too_long", "invalid_request" ]
+            }
+          }
+        }, {
+          "name" : "referred",
+          "in" : "query",
+          "description" : "Whether the answer suggested another persona",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AuditPage"
                 }
               }
             }
@@ -293,6 +442,17 @@
           }
         },
         "required" : [ "password", "username" ]
+      },
+      "PersonaView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          }
+        }
       },
       "IngestionRun" : {
         "type" : "object",
@@ -441,11 +601,138 @@
           }
         }
       },
+      "ClientConfig" : {
+        "type" : "object",
+        "properties" : {
+          "maxQuestionChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "CurrentUser" : {
         "type" : "object",
         "properties" : {
           "username" : {
             "type" : "string"
+          }
+        }
+      },
+      "AuditPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AuditRecord"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalItems" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AuditRecord" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "requestId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "clientId" : {
+            "type" : "string"
+          },
+          "conversationId" : {
+            "type" : "string"
+          },
+          "personaId" : {
+            "type" : "string"
+          },
+          "question" : {
+            "type" : "string"
+          },
+          "answer" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "answered", "partially_answered", "no_information", "out_of_scope", "small_talk", "about_assistant", "error" ]
+          },
+          "errorCode" : {
+            "type" : "string",
+            "enum" : [ "INVALID_REQUEST", "UNSUPPORTED_VERSION", "PERSONA_NOT_FOUND", "QUESTION_TOO_LONG", "RATE_LIMITED", "TIMEOUT", "LLM_UNAVAILABLE", "INTERNAL_ERROR" ]
+          },
+          "citations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Citation"
+            }
+          },
+          "referralPersonaId" : {
+            "type" : "string"
+          },
+          "flags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "injection_suspected", "rate_limited", "question_too_long", "invalid_request" ]
+            }
+          },
+          "llmModel" : {
+            "type" : "string"
+          },
+          "promptVersion" : {
+            "type" : "string"
+          },
+          "firstTokenMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Citation" : {
+        "type" : "object",
+        "properties" : {
+          "documentId" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "section" : {
+            "type" : "string"
+          },
+          "sourceType" : {
+            "type" : "string",
+            "enum" : [ "file", "email", "email_attachment", "jira", "confluence", "sharepoint" ]
           }
         }
       }

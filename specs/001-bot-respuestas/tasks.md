@@ -349,10 +349,16 @@
   viejos no se reenvían. Lo guardado se olvida pasados `ANSWER_TIMEOUT` (por defecto 2 min) + 1 min.
   Al apagar, la Core API cierra los streams antes que el servidor web.
 
-**[ ] T37 — Personas, configuración y auditoría**
+**[x] T37 — Personas, configuración y auditoría**
 - Spec: HU8, HU10 · Plan: 6.3 · Depende de: T33
 - `GET /api/personas`, `GET /api/config`, `GET /api/audit` paginado con filtros.
 - **Hecho cuando:** tests de los endpoints y de cada filtro.
+- **Nota (2026-10-15):** `GET /api/audit?page=&size=` (página desde 0, tamaño 1–100, por defecto 20),
+  del más nuevo al más viejo, con `{ items, page, size, totalItems }`. Filtros, todos juntos:
+  `personaId`, `from` (incluido) y `to` (excluido) en ISO 8601, `outcome` y `flag` (repetibles: vale
+  cualquiera de los valores, con los nombres del contrato) y `referred` (si sugirió otra persona: los
+  "casos marcados" de HU8.2 incluyen las derivaciones). Un valor desconocido responde 400.
+  `GET /api/config` devuelve `{ maxQuestionChars }` (`MAX_QUESTION_CHARS`, el mismo límite que el agente).
 
 **[ ] T38 — Documentación publicada**
 - Plan: 2.7, 6.3 · Depende de: T03, T30
